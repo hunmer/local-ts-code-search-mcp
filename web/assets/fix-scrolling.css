@@ -1,0 +1,67 @@
+/* 修复右侧内容面板滚动问题 */
+
+/* 确保容器具有正确的高度和溢出处理 */
+.right-panel-content,
+.content-panel,
+.flex-1.overflow-hidden,
+.h-\[calc\(100\%-73px\)\],
+.h-\[calc\(100\%-200px\)\] {
+  height: calc(100vh - 200px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* 修复具体的内容区域滚动 */
+.overflow-y-auto {
+  overflow-y: auto !important;
+  max-height: 100% !important;
+}
+
+/* 确保父容器不会阻止滚动 */
+.overflow-hidden {
+  overflow: visible !important;
+}
+
+/* 针对特定的面板内容区域 */
+.panel-content {
+  height: calc(100vh - 120px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 设置面板内容区域 */
+.settings-content {
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+}
+
+/* 源代码面板右侧内容 */
+.source-right-panel {
+  height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
+/* 工具面板内容 */
+.tools-panel-content {
+  height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+/* 通用修复 */
+.scrollable-content {
+  overflow-y: auto !important;
+  max-height: 100% !important;
+}
+
+/* 修复嵌套的滚动容器 */
+.nested-scroll {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* 确保内容不会被截断 */
+.content-wrapper {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+}

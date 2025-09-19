@@ -1,0 +1,133 @@
+{
+  "changeId": "compare-directories-parameters-2025-09-19",
+  "timestamp": "2025-09-19T06:11:00Z",
+  "type": "feature_enhancement",
+  "scope": "tools",
+  "summary": "为 compare-directories.js 添加自定义目录参数支持",
+  "description": "增加 --reports/-r 和 --parsed/-p 参数支持，允许用户指定自定义的 reports 和 parsed 目录路径，而不是使用固定的相对路径",
+  "files_modified": [
+    {
+      "path": "tools/compare-directories.js",
+      "changes": [
+        {
+          "type": "function_addition",
+          "description": "添加 parseArgs() 函数用于解析命令行参数",
+          "lines": "4-31"
+        },
+        {
+          "type": "main_function_update",
+          "description": "更新主函数以支持自定义目录参数和错误处理",
+          "lines": "87-139"
+        },
+        {
+          "type": "output_enhancement",
+          "description": "优化输出文件命名和保存逻辑",
+          "lines": "134-139"
+        },
+        {
+          "type": "module_export_update",
+          "description": "导出新的 parseArgs 函数",
+          "lines": "143-148"
+        }
+      ]
+    }
+  ],
+  "functionality": {
+    "before": {
+      "reports_dir": "固定使用 './reports/' 目录",
+      "parsed_dir": "固定使用 './parsed/' 目录",
+      "flexibility": "无法自定义目录位置",
+      "error_handling": "基本的文件系统错误处理"
+    },
+    "after": {
+      "reports_dir": "支持通过 --reports/-r 参数自定义",
+      "parsed_dir": "支持通过 --parsed/-p 参数自定义",
+      "flexibility": "可以指定任意目录路径",
+      "error_handling": "增强的目录存在性检查和用户友好提示",
+      "backward_compatibility": "默认值保持不变，向后兼容"
+    }
+  },
+  "usage_examples": [
+    {
+      "command": "node compare-directories.js",
+      "description": "使用默认目录 ./reports 和 ./parsed"
+    },
+    {
+      "command": "node compare-directories.js -r ./custom-reports -p ./custom-parsed",
+      "description": "使用自定义相对路径目录"
+    },
+    {
+      "command": "node compare-directories.js --reports D:\\project\\data --parsed D:\\project\\output",
+      "description": "使用绝对路径目录"
+    },
+    {
+      "command": "node compare-directories.js --help",
+      "description": "显示帮助信息"
+    }
+  ],
+  "parameter_details": [
+    {
+      "name": "--reports / -r",
+      "type": "string",
+      "required": false,
+      "default": "./reports",
+      "description": "指定 reports 目录的路径，支持相对路径和绝对路径"
+    },
+    {
+      "name": "--parsed / -p", 
+      "type": "string",
+      "required": false,
+      "default": "./parsed",
+      "description": "指定 parsed 目录的路径，支持相对路径和绝对路径"
+    },
+    {
+      "name": "--help / -h",
+      "type": "flag",
+      "required": false,
+      "description": "显示帮助信息并退出"
+    }
+  ],
+  "enhancements": [
+    {
+      "type": "validation",
+      "description": "添加目录存在性检查，reports 目录不存在时报错退出，parsed 目录不存在时给出警告"
+    },
+    {
+      "type": "logging",
+      "description": "增加详细的日志输出，显示正在比较的目录路径"
+    },
+    {
+      "type": "output_naming",
+      "description": "输出文件名包含时间戳，避免文件覆盖"
+    },
+    {
+      "type": "help_system",
+      "description": "内置帮助系统，提供清晰的使用说明"
+    }
+  ],
+  "integration_scenarios": [
+    {
+      "scenario": "配合 analyze-complexity.js 使用",
+      "example": "node analyze-complexity.js -d ./src -o ./custom-reports && node compare-directories.js -r ./custom-reports -p ./custom-parsed",
+      "description": "先分析代码生成报告到自定义目录，再比较自定义目录"
+    },
+    {
+      "scenario": "多项目环境",
+      "example": "node compare-directories.js -r /project1/reports -p /project1/parsed",
+      "description": "在多项目环境中比较不同项目的报告和解析结果"
+    }
+  ],
+  "quality_assurance": {
+    "backward_compatibility": "完全保持，默认行为不变",
+    "error_handling": "增强的错误检查和用户友好的错误消息",
+    "path_handling": "支持相对路径和绝对路径，自动解析路径",
+    "cross_platform": "使用 path.resolve() 确保跨平台兼容性"
+  },
+  "benefits": [
+    "提高工具的灵活性和可配置性",
+    "支持多项目和多环境的目录比较",
+    "便于集成到不同的工作流程中",
+    "增强的错误处理和用户体验",
+    "保持向后兼容性"
+  ]
+}

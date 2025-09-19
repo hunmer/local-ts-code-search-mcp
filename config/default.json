@@ -1,0 +1,67 @@
+{
+  "server": {
+    "name": "local-ts-code-search-mcp",
+    "version": "1.0.0",
+    "description": "Local TypeScript Code Search MCP Server"
+  },
+  "paths": {
+    "reportsDir": "reports",
+    "parsedDir": "parsed",
+    "toolsDir": "../tools"
+  },
+  "analysis": {
+    "maxFileSize": "10MB",
+    "allowedExtensions": [".ts", ".tsx", ".js", ".jsx"],
+    "complexityThresholds": {
+      "low": 5,
+      "medium": 10,
+      "high": 20,
+      "critical": 50
+    },
+    "maintainabilityThresholds": {
+      "excellent": 85,
+      "good": 65,
+      "fair": 50,
+      "poor": 30
+    }
+  },
+  "search": {
+    "defaultOptions": {
+      "recursive": true,
+      "ignoreCase": true,
+      "maxResults": 100
+    },
+    "jsonPathSupport": true
+  },
+  "webUI": {
+    "enabled": true,
+    "defaultPort": 3001,
+    "corsEnabled": true,
+    "staticFiles": {
+      "enabled": true,
+      "path": "./web"
+    }
+  },
+  "tools": {
+    "analyzeComplexity": {
+      "command": "node tools/analyze-complexity.js",
+      "timeout": 30000,
+      "maxConcurrent": 3
+    },
+    "jsonSearch": {
+      "command": "node tools/json-search.js", 
+      "timeout": 10000,
+      "maxConcurrent": 5
+    }
+  },
+  "logging": {
+    "level": "info",
+    "verbose": false,
+    "enableDebug": false
+  },
+  "output": {
+    "format": "json",
+    "pretty": true,
+    "encoding": "utf-8"
+  }
+}

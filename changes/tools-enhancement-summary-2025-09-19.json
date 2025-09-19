@@ -1,0 +1,175 @@
+{
+  "summaryId": "tools-enhancement-summary-2025-09-19",
+  "timestamp": "2025-09-19T06:13:00Z",
+  "type": "enhancement_summary",
+  "scope": "tools",
+  "title": "TypeScript 代码分析工具增强 - 自定义导出位置支持",
+  "description": "为 analyze-complexity.js 和 compare-directories.js 两个核心工具添加了自定义目录参数支持，提高了工具的灵活性和可配置性",
+  
+  "changes_overview": {
+    "total_files_modified": 2,
+    "tools_enhanced": [
+      "tools/analyze-complexity.js",
+      "tools/compare-directories.js"
+    ],
+    "new_parameters_added": 4,
+    "backward_compatibility": "完全保持"
+  },
+  
+  "detailed_changes": [
+    {
+      "tool": "analyze-complexity.js",
+      "changeId": "analyze-complexity-output-option-2025-09-19",
+      "enhancement_type": "parameter_addition",
+      "new_parameters": [
+        {
+          "name": "--output / -o",
+          "type": "string",
+          "default": "reports",
+          "description": "指定分析报告的输出目录"
+        }
+      ],
+      "impact": {
+        "functions_modified": ["parseArgs", "saveResult", "updateHealthIndex", "main"],
+        "mcp_integration": "analysis-local-ts-code.js 已更新支持"
+      }
+    },
+    {
+      "tool": "compare-directories.js", 
+      "changeId": "compare-directories-parameters-2025-09-19",
+      "enhancement_type": "parameter_addition",
+      "new_parameters": [
+        {
+          "name": "--reports / -r",
+          "type": "string", 
+          "default": "./reports",
+          "description": "指定 reports 目录路径"
+        },
+        {
+          "name": "--parsed / -p",
+          "type": "string",
+          "default": "./parsed", 
+          "description": "指定 parsed 目录路径"
+        },
+        {
+          "name": "--help / -h",
+          "type": "flag",
+          "description": "显示帮助信息"
+        }
+      ],
+      "impact": {
+        "functions_added": ["parseArgs"],
+        "functions_modified": ["main"],
+        "error_handling": "增强的目录验证和用户友好提示"
+      }
+    }
+  ],
+  
+  "usage_workflows": [
+    {
+      "name": "默认工作流（向后兼容）",
+      "steps": [
+        "node tools/analyze-complexity.js -d ./src",
+        "node tools/compare-directories.js"
+      ],
+      "description": "使用默认目录，行为与之前完全一致"
+    },
+    {
+      "name": "自定义输出工作流",
+      "steps": [
+        "node tools/analyze-complexity.js -d ./src -o ./custom-reports",
+        "node tools/compare-directories.js -r ./custom-reports -p ./custom-parsed"
+      ],
+      "description": "使用自定义目录进行分析和比较"
+    },
+    {
+      "name": "多项目环境工作流",
+      "steps": [
+        "node tools/analyze-complexity.js -d /project1/src -o /project1/reports",
+        "node tools/analyze-complexity.js -d /project2/src -o /project2/reports", 
+        "node tools/compare-directories.js -r /project1/reports -p /project1/parsed",
+        "node tools/compare-directories.js -r /project2/reports -p /project2/parsed"
+      ],
+      "description": "在多项目环境中独立分析和比较不同项目"
+    }
+  ],
+  
+  "integration_with_mcp": {
+    "mcp_tool": "analysis-local-ts-code.js",
+    "new_parameter": "outputDir",
+    "usage_example": "analysisLocalTsCode({ filePath: './src/file.ts', outputDir: './custom-reports' })",
+    "backward_compatibility": "outputDir 参数为可选，默认值保持 'reports'"
+  },
+  
+  "quality_improvements": [
+    {
+      "type": "error_handling",
+      "description": "增强的目录存在性检查和用户友好的错误消息"
+    },
+    {
+      "type": "logging",
+      "description": "详细的操作日志，显示实际使用的目录路径"
+    },
+    {
+      "type": "help_system", 
+      "description": "内置帮助系统，提供清晰的使用说明"
+    },
+    {
+      "type": "output_management",
+      "description": "时间戳文件命名，避免输出文件覆盖"
+    }
+  ],
+  
+  "testing_validation": {
+    "test_scenarios": [
+      {
+        "scenario": "默认参数测试",
+        "command": "node tools/analyze-complexity.js -d ./test-src",
+        "expected": "输出到默认 reports 目录"
+      },
+      {
+        "scenario": "自定义输出目录测试", 
+        "command": "node tools/analyze-complexity.js -d ./test-src -o ./test-output",
+        "expected": "输出到 test-output 目录"
+      },
+      {
+        "scenario": "目录比较测试",
+        "command": "node tools/compare-directories.js -r ./test-reports -p ./test-parsed",
+        "expected": "比较指定的自定义目录"
+      },
+      {
+        "scenario": "帮助信息测试",
+        "command": "node tools/compare-directories.js --help", 
+        "expected": "显示完整的帮助信息"
+      }
+    ],
+    "validation_results": {
+      "all_tests_passed": true,
+      "backward_compatibility_verified": true,
+      "error_handling_verified": true
+    }
+  },
+  
+  "benefits_achieved": [
+    "提高了工具的灵活性和可配置性",
+    "支持多项目和多环境的代码分析",
+    "便于集成到不同的 CI/CD 流程中",
+    "保持完全的向后兼容性",
+    "增强的用户体验和错误处理",
+    "支持相对路径和绝对路径",
+    "跨平台兼容性"
+  ],
+  
+  "future_considerations": [
+    "可考虑添加配置文件支持",
+    "可扩展更多输出格式选项",
+    "可增加批量处理功能",
+    "可添加更多验证和过滤选项"
+  ],
+  
+  "documentation_updates_needed": [
+    "更新 README.md 中的工具使用说明",
+    "更新 MCP 工具的 API 文档",
+    "添加新参数的示例和最佳实践"
+  ]
+}

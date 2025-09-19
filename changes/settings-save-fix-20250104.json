@@ -1,0 +1,34 @@
+{
+  "change_id": "settings-save-fix-20250104",
+  "timestamp": "2025-01-04T12:00:00Z",
+  "description": "修复前端设置保存功能，从localStorage改为后端API保存",
+  "type": "bug_fix",
+  "files_modified": [
+    {
+      "file_path": "D:\\programming\\local_ts_code_search_mcp\\web-ui\\src\\components\\panels\\SettingsPanel.vue",
+      "change_type": "修改",
+      "changes": [
+        {
+          "function": "saveSettings",
+          "line_range": "466-496",
+          "description": "修改保存设置功能，优先保存到后端API，失败时回退到localStorage"
+        },
+        {
+          "function": "loadSettings", 
+          "line_range": "524-570",
+          "description": "修改加载设置功能，优先从后端API加载，失败时从localStorage和服务器配置加载"
+        }
+      ]
+    }
+  ],
+  "technical_details": {
+    "problem": "前端设置只保存到localStorage，没有调用后端API持久化到服务器文件",
+    "solution": "修改saveSettings函数调用apiService.saveSettings()保存到后端，修改loadSettings函数优先从apiService.getSettings()加载",
+    "rollback_strategy": "如果后端API不可用，会自动回退到localStorage操作，保证功能可用性"
+  },
+  "testing_required": [
+    "验证设置保存到后端API",
+    "验证设置从后端API加载",
+    "验证API失败时的本地存储回退机制"
+  ]
+}

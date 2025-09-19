@@ -1,0 +1,191 @@
+{
+  "changeId": "compare-directories-mcp-tool-2025-09-19",
+  "timestamp": "2025-09-19T06:17:00Z",
+  "type": "feature_addition",
+  "scope": "mcp_tools",
+  "summary": "添加新的 compare_directories MCP 工具",
+  "description": "创建了新的 MCP 工具来使用 compare-directories.js 脚本，提供通过 MCP 协议比较 reports 和 parsed 目录的功能",
+  
+  "files_created": [
+    {
+      "path": "tools/compare-directories-mcp.js",
+      "description": "新的 MCP 工具包装器，提供目录比较功能",
+      "lines_of_code": 530,
+      "key_features": [
+        "目录路径解析和验证",
+        "compare-directories.js 脚本调用",
+        "结果解析和增强",
+        "智能建议生成",
+        "文件分类和模式分析",
+        "工作量预估",
+        "健康度分布分析"
+      ]
+    }
+  ],
+  
+  "files_modified": [
+    {
+      "path": "server.js",
+      "changes": [
+        {
+          "type": "import_addition",
+          "description": "导入新的 compare-directories-mcp 模块",
+          "line": 23
+        },
+        {
+          "type": "tool_registration",
+          "description": "注册 compare_directories MCP 工具",
+          "lines": "146-169"
+        },
+        {
+          "type": "enhancement",
+          "description": "为 analysis_local_ts_code 工具添加 outputDir 参数支持",
+          "lines": "119-121"
+        }
+      ]
+    }
+  ],
+  
+  "mcp_tool_specification": {
+    "name": "compare_directories",
+    "description": "比较reports和parsed目录，找出尚未解析的报告文件",
+    "parameters": [
+      {
+        "name": "reportsDir",
+        "type": "string",
+        "required": false,
+        "description": "reports目录路径，默认使用dataPath/reports"
+      },
+      {
+        "name": "parsedDir", 
+        "type": "string",
+        "required": false,
+        "description": "parsed目录路径，默认使用dataPath/parsed"
+      },
+      {
+        "name": "saveResult",
+        "type": "boolean",
+        "required": false,
+        "default": true,
+        "description": "是否保存结果到changes目录"
+      }
+    ],
+    "returns": {
+      "type": "object",
+      "description": "详细的目录比较结果，包含统计信息、缺失文件列表、分析和建议"
+    }
+  },
+  
+  "functionality_highlights": [
+    {
+      "feature": "智能目录验证",
+      "description": "自动检查目录存在性，reports目录不存在时报错，parsed目录不存在时警告"
+    },
+    {
+      "feature": "路径解析灵活性",
+      "description": "支持相对路径和绝对路径，自动解析为规范路径"
+    },
+    {
+      "feature": "结果增强分析",
+      "description": "提供文件分类、模式分析、健康度分布、工作量预估等增值信息"
+    },
+    {
+      "feature": "智能建议生成", 
+      "description": "根据比较结果生成具体的操作建议，包括优先级文件和批量处理建议"
+    },
+    {
+      "feature": "详细统计报告",
+      "description": "提供完成率、剩余工作量、文件类型分布等统计信息"
+    }
+  ],
+  
+  "integration_capabilities": [
+    {
+      "integration": "与 analysis_local_ts_code 工具联动",
+      "description": "可以基于分析结果指导后续的代码解析工作"
+    },
+    {
+      "integration": "支持自定义目录路径",
+      "description": "与增强版 analyze-complexity.js 的自定义输出目录功能完美配合"
+    },
+    {
+      "integration": "结果持久化",
+      "description": "自动保存比较结果到 changes 目录，便于跟踪和审查"
+    }
+  ],
+  
+  "usage_examples": [
+    {
+      "scenario": "默认目录比较",
+      "mcp_call": "compare_directories({})",
+      "description": "使用默认的 dataPath/reports 和 dataPath/parsed 目录"
+    },
+    {
+      "scenario": "指定自定义目录",
+      "mcp_call": "compare_directories({ reportsDir: './custom-reports', parsedDir: './custom-parsed' })",
+      "description": "比较指定的自定义目录"
+    },
+    {
+      "scenario": "不保存结果",
+      "mcp_call": "compare_directories({ saveResult: false })",
+      "description": "执行比较但不保存结果文件"
+    }
+  ],
+  
+  "output_structure": {
+    "success": "boolean - 操作是否成功",
+    "comparison": {
+      "statistics": "统计信息（总文件数、已解析文件数、缺失文件数）",
+      "missingInParsed": "缺失文件列表",
+      "analysis": {
+        "patterns": "文件模式分析（按目录、扩展名、类型分组）",
+        "categories": "文件分类（组件、服务、工具等）",
+        "healthDistribution": "健康度分布统计",
+        "workloadEstimate": "工作量预估"
+      },
+      "summary": {
+        "completionRate": "完成百分比",
+        "remainingWork": "剩余工作量",
+        "priorityFiles": "优先处理文件列表"
+      }
+    },
+    "directories": "实际使用的目录路径",
+    "recommendations": "操作建议列表",
+    "metadata": "元数据（时间戳、工具信息等）"
+  },
+  
+  "quality_features": [
+    {
+      "feature": "错误处理",
+      "description": "全面的错误捕获和用户友好的错误信息"
+    },
+    {
+      "feature": "日志记录", 
+      "description": "详细的操作日志，便于调试和追踪"
+    },
+    {
+      "feature": "超时保护",
+      "description": "防止长时间运行的比较操作阻塞系统"
+    },
+    {
+      "feature": "结果验证",
+      "description": "自动验证脚本输出并提供降级处理"
+    }
+  ],
+  
+  "benefits": [
+    "通过 MCP 协议提供标准化的目录比较接口",
+    "自动识别需要处理的文件，提高工作效率", 
+    "智能分析和建议，指导优先级处理",
+    "与现有工具链无缝集成",
+    "支持多种使用场景和配置选项",
+    "提供丰富的统计信息和可视化数据"
+  ],
+  
+  "next_steps": [
+    "测试 MCP 工具的完整功能",
+    "验证与其他工具的集成效果",
+    "根据使用反馈优化建议算法",
+    "考虑添加更多自定义配置选项"
+  ]
+}

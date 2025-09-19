@@ -1,0 +1,55 @@
+{
+  "name": "local-ts-code-search-mcp",
+  "version": "1.0.0",
+  "description": "Local TypeScript Code Search MCP Server - 提供TypeScript代码搜索、分析和解析功能的MCP服务器",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --port 3667 --api-port 3668",
+    "dev:full": "node dev-start.js",
+    "dev:concurrent": "concurrently \"npm run dev\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd web-ui && npm run dev",
+    "test": "node test/integration.test.js",
+    "help": "node server.js --help"
+  },
+  "keywords": [
+    "mcp",
+    "typescript",
+    "code-analysis",
+    "code-search",
+    "complexity-analysis"
+  ],
+  "author": "Developer",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "typescript": "^5.0.0",
+    "madge": "^8.0.0",
+    "typhonjs-escomplex": "^0.1.0",
+    "js-yaml": "^4.1.0"
+  },
+  "peerDependencies": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "local"
+  },
+  "bin": {
+    "local-ts-code-search-mcp": "./server.js"
+  },
+  "files": [
+    "server.js",
+    "tools/",
+    "web/",
+    "config/",
+    "README.md"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "js-yaml": "^4.1.0"
+  }
+}

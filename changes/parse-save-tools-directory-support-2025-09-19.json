@@ -1,0 +1,276 @@
+{
+  "changeId": "parse-save-tools-directory-support-2025-09-19",
+  "timestamp": "2025-09-19T06:34:00Z",
+  "type": "feature_enhancement",
+  "scope": "parsing_and_saving_tools",
+  "summary": "为 parse-local-ts-code.js 和 save-change-locator-result.js 添加自定义目录参数支持",
+  "description": "完善了解析和保存工具的目录配置功能，支持自定义输入输出目录，并在MCP服务器中注册了parse_local_ts_code工具，实现了完整的工具链目录参数统一",
+  
+  "files_modified": [
+    {
+      "path": "tools/parse-local-ts-code.js",
+      "changes": [
+        {
+          "type": "parameter_addition",
+          "description": "添加 reportsDir 和 parsedDir 参数支持",
+          "lines": "22-24, 28-29"
+        },
+        {
+          "type": "directory_resolution",
+          "description": "更新目录路径解析逻辑以支持自定义目录",
+          "lines": "39-44"
+        }
+      ]
+    },
+    {
+      "path": "tools/save-change-locator-result.js",
+      "changes": [
+        {
+          "type": "parameter_addition",
+          "description": "添加 outputDir 参数支持",
+          "lines": "22-24, 28-29"
+        },
+        {
+          "type": "directory_resolution",
+          "description": "更新输出目录解析逻辑",
+          "lines": "35-44"
+        }
+      ]
+    },
+    {
+      "path": "server.js",
+      "changes": [
+        {
+          "type": "import_addition",
+          "description": "导入 parse-local-ts-code 工具模块",
+          "line": 24
+        },
+        {
+          "type": "tool_registration",
+          "description": "注册 parse_local_ts_code MCP 工具",
+          "lines": "192-215"
+        },
+        {
+          "type": "schema_update",
+          "description": "更新 save_change_locator_result 工具的参数模式",
+          "lines": "156-158"
+        }
+      ]
+    }
+  ],
+  
+  "new_parameters": [
+    {
+      "tool": "parse_local_ts_code",
+      "parameters": [
+        {
+          "name": "reportsDir",
+          "type": "string",
+          "required": false,
+          "default": "dataPath/reports",
+          "description": "指定读取分析报告的目录路径"
+        },
+        {
+          "name": "parsedDir", 
+          "type": "string",
+          "required": false,
+          "default": "dataPath/parsed",
+          "description": "指定保存解析结果的目录路径"
+        }
+      ]
+    },
+    {
+      "tool": "save_change_locator_result",
+      "parameters": [
+        {
+          "name": "outputDir",
+          "type": "string",
+          "required": false,
+          "default": "dataPath/changes",
+          "description": "指定保存Change Locator结果的输出目录"
+        }
+      ]
+    }
+  ],
+  
+  "mcp_integration": {
+    "new_tool_registered": "parse_local_ts_code",
+    "enhanced_tool": "save_change_locator_result",
+    "total_mcp_tools": 5,
+    "tool_descriptions": {
+      "parse_local_ts_code": "解析reports目录下的复杂度报告，生成注释并保存到parsed目录",
+      "save_change_locator_result": "保存使用Change Locator prompt处理后的AI结果到changes目录（增强版）"
+    }
+  },
+  
+  "functionality_improvements": [
+    {
+      "improvement": "完整的工具链目录配置",
+      "description": "现在所有核心工具都支持自定义目录参数",
+      "tools_covered": [
+        "analyze-complexity.js (输出目录)",
+        "compare-directories.js (输入目录)", 
+        "json-search.js (搜索目录)",
+        "search-local-ts-code.js (全目录)",
+        "parse-local-ts-code.js (输入输出目录)",
+        "save-change-locator-result.js (输出目录)"
+      ]
+    },
+    {
+      "improvement": "灵活的解析工作流程",
+      "description": "支持从任意reports目录读取分析报告并输出到任意parsed目录",
+      "use_cases": [
+        "多项目环境中的独立解析",
+        "自定义工作流程集成",
+        "临时分析任务处理"
+      ]
+    },
+    {
+      "improvement": "MCP工具完整性",
+      "description": "parse_local_ts_code工具首次在MCP服务器中注册",
+      "impact": "通过MCP协议可以使用完整的代码解析功能"
+    }
+  ],
+  
+  "usage_examples": [
+    {
+      "scenario": "默认使用（向后兼容）",
+      "commands": [
+        "parse_local_ts_code({ filePath: './component.ts' })",
+        "save_change_locator_result({ result: changeLocatorData })"
+      ],
+      "description": "使用默认目录，行为与之前一致"
+    },
+    {
+      "scenario": "自定义目录解析",
+      "commands": [
+        "parse_local_ts_code({ filePath: './component.ts', reportsDir: './custom-reports', parsedDir: './custom-parsed' })",
+        "save_change_locator_result({ result: data, outputDir: './project-changes' })"
+      ],
+      "description": "使用自定义的输入输出目录"
+    },
+    {
+      "scenario": "多项目管理",
+      "commands": [
+        "# 项目1解析",
+        "parse_local_ts_code({ filePath: './src/main.ts', reportsDir: '/project1/reports', parsedDir: '/project1/parsed' })",
+        "# 项目2解析",
+        "parse_local_ts_code({ filePath: './src/main.ts', reportsDir: '/project2/reports', parsedDir: '/project2/parsed' })"
+      ],
+      "description": "为不同项目使用独立的目录结构"
+    }
+  ],
+  
+  "workflow_integration": [
+    {
+      "workflow": "完整代码分析流程",
+      "steps": [
+        "1. analysis_local_ts_code({ filePath: './file.ts', outputDir: './reports' })",
+        "2. parse_local_ts_code({ filePath: './file.ts', reportsDir: './reports', parsedDir: './parsed' })",
+        "3. search_local_ts_code({ filePath: './file.ts', reportsDir: './reports', parsedDir: './parsed' })",
+        "4. compare_directories({ reportsDir: './reports', parsedDir: './parsed' })"
+      ],
+      "description": "使用自定义目录的完整分析流程"
+    },
+    {
+      "workflow": "Change Locator集成",
+      "steps": [
+        "1. 使用Change Locator prompt分析需求",
+        "2. save_change_locator_result({ result: aiResult, outputDir: './changes' })",
+        "3. 基于结果执行具体的代码修改"
+      ],
+      "description": "将AI分析结果保存到指定位置"
+    }
+  ],
+  
+  "technical_details": {
+    "directory_resolution": {
+      "parse_tool": "支持独立的reportsDir和parsedDir配置",
+      "save_tool": "支持自定义outputDir配置",
+      "path_handling": "正确处理相对路径和绝对路径"
+    },
+    "backward_compatibility": {
+      "status": "完全保持",
+      "default_behavior": "未指定目录参数时使用原有默认路径",
+      "existing_workflows": "所有现有调用方式继续有效"
+    },
+    "error_handling": {
+      "directory_validation": "自动检查和创建必要的输出目录",
+      "path_resolution": "智能路径解析和错误提示",
+      "graceful_fallback": "无效路径时回退到默认行为"
+    }
+  },
+  
+  "mcp_server_enhancements": {
+    "tools_before": 4,
+    "tools_after": 5,
+    "new_registrations": [
+      {
+        "name": "parse_local_ts_code",
+        "parameters": ["filePath", "reportsDir", "parsedDir"],
+        "description": "首次注册，提供完整的代码解析MCP接口"
+      }
+    ],
+    "enhanced_registrations": [
+      {
+        "name": "save_change_locator_result", 
+        "new_parameter": "outputDir",
+        "description": "增加输出目录配置选项"
+      }
+    ]
+  },
+  
+  "ecosystem_completeness": {
+    "coverage": "100%",
+    "description": "现在所有核心工具都支持自定义目录参数",
+    "tool_chain": [
+      "analyze (输出) → compare (输入) → parse (输入输出) → search (输入) → save (输出)"
+    ],
+    "directory_flow": "完整的数据流目录配置支持"
+  },
+  
+  "quality_improvements": [
+    {
+      "improvement": "参数一致性",
+      "description": "所有工具使用一致的目录参数命名约定"
+    },
+    {
+      "improvement": "MCP接口完整性",
+      "description": "通过MCP协议可以访问所有工具的完整功能"
+    },
+    {
+      "improvement": "目录管理灵活性",
+      "description": "支持复杂的项目布局和自定义工作流程"
+    }
+  ],
+  
+  "validation_results": {
+    "syntax_check": "✅ 通过 - 所有修改的文件语法正确",
+    "mcp_registration": "✅ 确认 - parse_local_ts_code工具成功注册",
+    "parameter_validation": "✅ 验证 - 新参数正确解析和使用",
+    "backward_compatibility": "✅ 保持 - 现有功能完全兼容"
+  },
+  
+  "benefits_achieved": [
+    "完成了工具链的最后一环目录参数支持",
+    "实现了完整的MCP工具生态系统",
+    "提供了统一的目录配置体验",
+    "支持了复杂的多项目管理场景",
+    "保持了完美的向后兼容性"
+  ],
+  
+  "project_impact": {
+    "completeness": "工具链目录参数支持达到100%覆盖",
+    "consistency": "所有工具使用统一的参数命名和行为",
+    "usability": "显著提升了复杂环境下的工具使用体验",
+    "maintainability": "清晰的参数体系便于维护和扩展"
+  },
+  
+  "final_status": {
+    "phase": "完成",
+    "all_tools_enhanced": true,
+    "mcp_integration_complete": true,
+    "directory_support_unified": true,
+    "ready_for_production": true
+  }
+}

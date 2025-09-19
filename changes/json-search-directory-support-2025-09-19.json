@@ -1,0 +1,271 @@
+{
+  "changeId": "json-search-directory-support-2025-09-19",
+  "timestamp": "2025-09-19T06:25:00Z",
+  "type": "feature_enhancement",
+  "scope": "search_tools",
+  "summary": "为 json-search.js 和 search-local-ts-code.js 添加自定义目录参数支持",
+  "description": "扩展了搜索工具的功能，支持自定义搜索目录、reports目录和parsed目录，提供了更灵活的搜索配置选项",
+  
+  "files_modified": [
+    {
+      "path": "tools/json-search.js",
+      "changes": [
+        {
+          "type": "constructor_enhancement",
+          "description": "为 JSONSearchTool 构造函数添加 options 参数支持",
+          "lines": "70-73"
+        },
+        {
+          "type": "parameter_addition",
+          "description": "添加 --search-dir/-s、--reports-dir/-r、--parsed-dir/-p 参数",
+          "lines": "79-89, 125-136"
+        },
+        {
+          "type": "method_addition",
+          "description": "新增 updateDirectories() 方法用于动态配置目录路径",
+          "lines": "194-214"
+        },
+        {
+          "type": "help_documentation",
+          "description": "更新帮助文档以包含新的目录参数和使用示例",
+          "lines": "158-187"
+        },
+        {
+          "type": "main_execution_update",
+          "description": "更新主执行逻辑以支持动态目录配置",
+          "lines": "495-530"
+        }
+      ]
+    },
+    {
+      "path": "tools/search-local-ts-code.js",
+      "changes": [
+        {
+          "type": "function_signature_update",
+          "description": "更新函数参数以支持搜索目录选项",
+          "lines": "25-27, 32"
+        },
+        {
+          "type": "directory_resolution",
+          "description": "添加目录路径解析逻辑以支持自定义目录",
+          "lines": "42-43"
+        },
+        {
+          "type": "analysis_integration",
+          "description": "更新 runAnalysis 调用以支持自定义输出目录",
+          "lines": "54-55, 124, 145-148"
+        },
+        {
+          "type": "search_integration",
+          "description": "更新 runJsonSearch 调用以支持自定义搜索目录",
+          "lines": "75-80, 195, 211-219"
+        }
+      ]
+    },
+    {
+      "path": "server.js",
+      "changes": [
+        {
+          "type": "mcp_schema_update",
+          "description": "更新 search_local_ts_code MCP 工具的参数模式",
+          "lines": "102-112"
+        }
+      ]
+    }
+  ],
+  
+  "new_parameters": [
+    {
+      "name": "--search-dir / -s",
+      "scope": "json-search.js",
+      "type": "string",
+      "description": "指定基础搜索目录，默认为当前目录",
+      "impact": "高 - 改变搜索的基础位置"
+    },
+    {
+      "name": "--reports-dir / -r",
+      "scope": "json-search.js", 
+      "type": "string",
+      "description": "指定reports目录路径，默认为<search-dir>/reports",
+      "impact": "中 - 自定义分析报告位置"
+    },
+    {
+      "name": "--parsed-dir / -p",
+      "scope": "json-search.js",
+      "type": "string", 
+      "description": "指定parsed目录路径，默认为<search-dir>/parsed",
+      "impact": "中 - 自定义解析数据位置"
+    },
+    {
+      "name": "searchDir",
+      "scope": "search-local-ts-code.js MCP",
+      "type": "string",
+      "description": "MCP工具的搜索基础目录参数",
+      "impact": "高 - MCP协议支持自定义目录"
+    },
+    {
+      "name": "reportsDir",
+      "scope": "search-local-ts-code.js MCP",
+      "type": "string", 
+      "description": "MCP工具的reports目录参数",
+      "impact": "中 - MCP协议支持自定义报告目录"
+    },
+    {
+      "name": "parsedDir",
+      "scope": "search-local-ts-code.js MCP",
+      "type": "string",
+      "description": "MCP工具的parsed目录参数", 
+      "impact": "中 - MCP协议支持自定义解析目录"
+    }
+  ],
+  
+  "functionality_improvements": [
+    {
+      "improvement": "灵活的目录结构支持",
+      "description": "用户可以指定任意的搜索基础目录，不再局限于当前工作目录",
+      "use_cases": [
+        "多项目环境管理",
+        "自定义工作流程",
+        "远程目录搜索",
+        "CI/CD集成"
+      ]
+    },
+    {
+      "improvement": "独立的reports和parsed目录配置",
+      "description": "可以分别指定reports和parsed目录，支持非标准目录结构",
+      "benefits": [
+        "支持复杂的项目布局",
+        "与analyze-complexity.js的自定义输出配合",
+        "便于数据管理和组织"
+      ]
+    },
+    {
+      "improvement": "MCP协议完整支持",
+      "description": "通过MCP协议可以使用所有新的目录参数",
+      "integration": "与现有的analysis和compare工具形成完整的工具链"
+    }
+  ],
+  
+  "usage_examples": [
+    {
+      "scenario": "默认使用（向后兼容）",
+      "commands": [
+        "node tools/json-search.js --function Button",
+        "search_local_ts_code({ filePath: './file.ts', query: 'Button' })"
+      ],
+      "description": "保持原有用法不变"
+    },
+    {
+      "scenario": "自定义搜索目录",
+      "commands": [
+        "node tools/json-search.js --search-dir /project/data --function Button",
+        "search_local_ts_code({ filePath: './file.ts', searchDir: '/project/data' })"
+      ],
+      "description": "在指定的项目目录中搜索"
+    },
+    {
+      "scenario": "分离的reports和parsed目录",
+      "commands": [
+        "node tools/json-search.js -r ./analysis-reports -p ./parsed-data --dependencies utils",
+        "search_local_ts_code({ filePath: './file.ts', reportsDir: './custom-reports', parsedDir: './custom-parsed' })"
+      ],
+      "description": "使用完全自定义的目录结构"
+    },
+    {
+      "scenario": "配合analyze-complexity.js的自定义输出",
+      "commands": [
+        "node tools/analyze-complexity.js -d ./src -o ./project-reports",
+        "node tools/json-search.js -r ./project-reports --function Component"
+      ],
+      "description": "搜索自定义位置生成的分析报告"
+    }
+  ],
+  
+  "technical_details": {
+    "directory_resolution": {
+      "priority_order": [
+        "1. 明确指定的目录参数（最高优先级）",
+        "2. 基于searchDir的默认子目录",
+        "3. 基于当前目录的默认子目录"
+      ],
+      "path_handling": "支持相对路径和绝对路径，自动解析为规范路径"
+    },
+    "parameter_inheritance": {
+      "description": "search-local-ts-code.js会将目录参数传递给json-search.js",
+      "flow": "MCP参数 → search-local-ts-code.js → json-search.js"
+    },
+    "error_handling": {
+      "directory_validation": "检查目录存在性，提供有意义的错误信息",
+      "fallback_behavior": "无效目录时回退到默认行为"
+    }
+  },
+  
+  "integration_scenarios": [
+    {
+      "scenario": "多项目工作空间",
+      "description": "在包含多个子项目的工作空间中，为每个项目指定专用的搜索目录",
+      "benefits": [
+        "避免搜索结果混淆",
+        "提高搜索精确性",
+        "支持项目特定的目录约定"
+      ]
+    },
+    {
+      "scenario": "自定义构建流程",
+      "description": "与自定义的代码分析和构建流程集成",
+      "example": "分析结果输出到特定目录，然后在该目录中进行搜索"
+    },
+    {
+      "scenario": "远程或网络文件系统",
+      "description": "支持在网络挂载或远程文件系统上的目录中进行搜索",
+      "advantages": [
+        "支持分布式开发环境",
+        "便于集中化的代码分析管理"
+      ]
+    }
+  ],
+  
+  "backward_compatibility": {
+    "status": "完全保持",
+    "verification": "所有现有用法和默认行为保持不变",
+    "migration_needed": false,
+    "existing_workflows": "继续正常工作"
+  },
+  
+  "quality_improvements": [
+    {
+      "improvement": "参数验证",
+      "description": "增强了目录参数的验证和错误提示"
+    },
+    {
+      "improvement": "帮助文档",
+      "description": "详细的帮助信息和使用示例"
+    },
+    {
+      "improvement": "代码可维护性",
+      "description": "清晰的目录配置逻辑，易于理解和扩展"
+    }
+  ],
+  
+  "testing_validation": {
+    "syntax_check": "通过 - 所有文件语法正确",
+    "help_documentation": "验证 - 帮助信息正确显示",
+    "parameter_parsing": "确认 - 新参数正确解析",
+    "integration_test": "需要 - 完整的端到端测试"
+  },
+  
+  "benefits_summary": [
+    "大幅提升了搜索工具的灵活性和适用性",
+    "支持复杂的项目结构和自定义工作流程",
+    "与现有工具链完美集成",
+    "保持完全的向后兼容性",
+    "提供了丰富的配置选项和使用场景"
+  ],
+  
+  "next_steps": [
+    "进行完整的集成测试",
+    "验证与其他工具的协同工作",
+    "根据使用反馈进行优化",
+    "考虑添加配置文件支持"
+  ]
+}

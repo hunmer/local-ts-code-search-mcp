@@ -1,0 +1,120 @@
+{
+  "timestamp": "2025-09-19T09:45:30Z",
+  "task": "修复WebUI和API端口配置颠倒及HTTP响应头错误",
+  "status": "已完成",
+  "problems_resolved": [
+    {
+      "issue": "端口配置颠倒",
+      "description": "API端口运行WebUI，WebUI端口运行API",
+      "solution": "重新架构，分离静态文件服务器和API服务器",
+      "status": "已解决"
+    },
+    {
+      "issue": "HTTP响应头重复发送错误",
+      "description": "ERR_HTTP_HEADERS_SENT错误导致服务器崩溃",
+      "solution": "添加res.headersSent检查，避免重复发送响应头",
+      "status": "已解决"
+    },
+    {
+      "issue": "API路由工具调用错误",
+      "description": "调用不存在的工具导致API失败",
+      "solution": "使用文件系统API替代不存在的工具，修正工具名称",
+      "status": "已解决"
+    }
+  ],
+  "architecture_changes": {
+    "before": {
+      "description": "单一Web服务器同时处理静态文件和API",
+      "issues": ["端口混淆", "响应头冲突", "职责不清"]
+    },
+    "after": {
+      "description": "分离的双服务器架构",
+      "components": [
+        {
+          "name": "StaticServer",
+          "file": "server/static.js",
+          "responsibility": "提供Web UI静态文件服务",
+          "port": "3667 (或--port指定)"
+        },
+        {
+          "name": "ApiServer", 
+          "file": "server/index.js",
+          "responsibility": "提供API端点服务",
+          "port": "3668 (或--api-port指定)"
+        }
+      ]
+    }
+  },
+  "files_modified": [
+    {
+      "file": "server.js",
+      "changes": [
+        "修改startWebServers方法启动两个独立服务器",
+        "保留原有端口配置逻辑"
+      ]
+    },
+    {
+      "file": "server/static.js",
+      "changes": ["新建独立静态文件服务器"],
+      "status": "新建"
+    },
+    {
+      "file": "server/index.js",
+      "changes": [
+        "移除静态文件处理逻辑",
+        "专注于API服务",
+        "修复响应头重复发送问题",
+        "清理残留代码片段"
+      ]
+    },
+    {
+      "file": "server/routes/api.js",
+      "changes": [
+        "所有响应方法添加res.headersSent检查",
+        "修复工具调用错误",
+        "使用文件系统API替代不存在的MCP工具"
+      ]
+    },
+    {
+      "file": "web/app.js",
+      "changes": [
+        "修复API地址配置，总是指向正确的API端口"
+      ]
+    }
+  ],
+  "testing_results": {
+    "web_ui_server": {
+      "port": 3667,
+      "status": "正常运行",
+      "response_code": 200,
+      "content_length": 428
+    },
+    "api_server": {
+      "port": 3668,
+      "status": "正常运行",
+      "health_endpoint": "http://localhost:3668/api/health",
+      "response_code": 200,
+      "cors_enabled": true
+    },
+    "errors": "无HTTP响应头错误"
+  },
+  "usage_instructions": {
+    "command": "node server.js --port 3667 --api-port 3668",
+    "web_ui_access": "http://localhost:3667",
+    "api_access": "http://localhost:3668/api/*",
+    "port_configuration": {
+      "web_ui_port": "3667 (或--port指定)",
+      "api_port": "3668 (或--api-port指定，默认为Web UI端口+1)"
+    },
+    "automatic_api_detection": "Web UI会自动检测并连接到正确的API端口"
+  },
+  "validation": {
+    "server_startup": "✓ 正常启动",
+    "port_separation": "✓ 端口职责正确分离",
+    "api_endpoints": "✓ API端点正常响应",
+    "static_files": "✓ 静态文件正常服务",
+    "cors_support": "✓ CORS正常工作",
+    "error_handling": "✓ 无HTTP响应头错误"
+  },
+  "conclusion": "所有问题已完全解决，服务器现在可以正常运行，端口配置正确，API连接有效。"
+}

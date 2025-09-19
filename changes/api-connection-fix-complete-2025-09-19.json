@@ -1,0 +1,87 @@
+{
+  "timestamp": "2025-09-19T09:30:01Z",
+  "task": "修复API请求无效问题",
+  "status": "已完成",
+  "changes_made": [
+    {
+      "file": "server.js",
+      "changes": [
+        "添加apiPort配置属性支持自定义API端口",
+        "修改命令行参数解析支持--api-port参数",
+        "更新帮助信息包含API端口说明",
+        "修改启动日志显示Web UI和API端口",
+        "修改startWebServer方法使用API端口"
+      ]
+    },
+    {
+      "file": "server/index.js", 
+      "changes": [
+        "修改WebServer构造函数使用MCP服务器的apiPort",
+        "更新启动日志显示API和Web UI地址"
+      ]
+    },
+    {
+      "file": "server/routes/api.js",
+      "changes": [
+        "添加fs和path模块引用",
+        "修复getFiles方法使用文件系统API替代不存在的list_files工具",
+        "修复getFile方法使用文件系统API替代不存在的read_file工具", 
+        "修复getReports方法使用文件系统API",
+        "修复searchFiles方法使用正确的search_local_ts_code工具",
+        "修复analyzeCode方法使用正确的工具名称"
+      ]
+    },
+    {
+      "file": "web/app.js",
+      "changes": [
+        "修改API基础地址自动检测逻辑支持不同端口"
+      ]
+    }
+  ],
+  "problems_fixed": [
+    {
+      "problem": "端口配置不一致",
+      "solution": "添加--api-port参数支持，默认为Web UI端口+1",
+      "status": "已修复"
+    },
+    {
+      "problem": "API路由调用不存在的工具",
+      "solution": "使用文件系统API替代不存在的工具，修正工具名称",
+      "status": "已修复"
+    },
+    {
+      "problem": "前端API地址硬编码",
+      "solution": "自动检测API端口并使用绝对URL",
+      "status": "已修复"
+    }
+  ],
+  "usage_instructions": {
+    "correct_command": "node server.js --port 3667 --api-port 3668",
+    "web_ui_url": "http://localhost:3667",
+    "api_base_url": "http://localhost:3668/api",
+    "available_endpoints": [
+      "GET /api/tools - 获取可用工具列表",
+      "POST /api/call - 调用MCP工具",
+      "GET /api/health - 健康检查",
+      "GET /api/config - 获取服务器配置",
+      "GET /api/files - 获取文件列表", 
+      "GET /api/file - 获取单个文件内容",
+      "GET /api/reports - 获取报告数据",
+      "POST /api/search - 搜索文件",
+      "POST /api/analyze - 代码分析",
+      "GET/POST /api/settings - 设置管理"
+    ]
+  },
+  "verification": {
+    "port_configuration": "已验证--api-port参数正确解析",
+    "api_routes": "已修复所有工具调用问题",
+    "frontend_api_connection": "已配置动态API地址检测"
+  },
+  "next_steps": [
+    "1. 停止当前运行的服务器进程",
+    "2. 使用新命令启动: node server.js --port 3667 --api-port 3668", 
+    "3. 访问 http://localhost:3667 进入Web UI",
+    "4. Web UI将自动连接到 http://localhost:3668/api",
+    "5. 测试所有API功能"
+  ]
+}

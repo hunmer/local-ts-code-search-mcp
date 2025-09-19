@@ -1,0 +1,73 @@
+{
+  "change_id": "dev-scripts-port-fix-20250104",
+  "timestamp": "2025-01-04T12:30:00Z",
+  "description": "修复开发环境启动脚本中的后端服务器端口配置",
+  "type": "bug_fix",
+  "files_modified": [
+    {
+      "file_path": "D:\\programming\\local_ts_code_search_mcp\\dev-start.js",
+      "change_type": "修改",
+      "changes": [
+        {
+          "description": "将后端服务器启动参数从 --port 3001 修改为 --port 3667 --api-port 3668",
+          "line_range": "55, 21-22"
+        }
+      ]
+    },
+    {
+      "file_path": "D:\\programming\\local_ts_code_search_mcp\\start-dev.ps1",
+      "change_type": "修改",
+      "changes": [
+        {
+          "description": "更新PowerShell脚本中的端口信息和启动参数",
+          "line_range": "5-6, 19"
+        }
+      ]
+    },
+    {
+      "file_path": "D:\\programming\\local_ts_code_search_mcp\\start-dev.bat",
+      "change_type": "修改",
+      "changes": [
+        {
+          "description": "更新批处理脚本中的端口信息和启动参数",
+          "line_range": "10-11, 23"
+        }
+      ]
+    },
+    {
+      "file_path": "D:\\programming\\local_ts_code_search_mcp\\package.json",
+      "change_type": "修改",
+      "changes": [
+        {
+          "description": "修复dev脚本中的启动参数",
+          "line_range": "9"
+        }
+      ]
+    },
+    {
+      "file_path": "D:\\programming\\local_ts_code_search_mcp\\DEV-START.md",
+      "change_type": "修改",
+      "changes": [
+        {
+          "description": "更新文档中的端口信息",
+          "line_range": "56-57, 89, 109"
+        }
+      ]
+    }
+  ],
+  "technical_details": {
+    "problem": "所有开发环境启动脚本都使用了错误的后端服务器启动参数，应该是 --port 3667 --api-port 3668",
+    "solution": "统一修改所有脚本文件中的启动参数，确保后端服务器在正确的端口启动",
+    "ports": {
+      "backend_mcp": 3667,
+      "backend_api": 3668,
+      "frontend_dev": 5173
+    }
+  },
+  "testing_required": [
+    "验证Node.js启动脚本能够正确启动后端服务器",
+    "验证PowerShell脚本工作正常",
+    "验证批处理脚本工作正常",
+    "验证前端能够正确连接到后端API"
+  ]
+}

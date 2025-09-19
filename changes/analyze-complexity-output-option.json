@@ -1,0 +1,99 @@
+{
+  "changeId": "analyze-complexity-output-option-2025-09-19",
+  "timestamp": "2025-09-19T06:05:00Z",
+  "type": "feature_enhancement",
+  "scope": "tools",
+  "summary": "为 analyze-complexity.js 脚本添加自定义导出位置选项",
+  "description": "增加 --output/-o 参数支持，允许用户指定分析报告的输出目录，而不是固定使用根目录下的 reports 文件夹",
+  "files_modified": [
+    {
+      "path": "tools/analyze-complexity.js",
+      "changes": [
+        {
+          "type": "parameter_addition",
+          "description": "在 parseArgs() 函数中添加 outputDir 参数解析",
+          "lines": "11-29"
+        },
+        {
+          "type": "function_signature_update",
+          "description": "更新 saveResult() 函数以接受 outputDir 参数",
+          "lines": "872-897"
+        },
+        {
+          "type": "function_signature_update",
+          "description": "更新 updateHealthIndex() 函数以接受 outputDir 参数",
+          "lines": "900-936"
+        },
+        {
+          "type": "main_function_update",
+          "description": "主函数中使用新的输出目录参数",
+          "lines": "940-1025"
+        }
+      ]
+    },
+    {
+      "path": "tools/analysis-local-ts-code.js",
+      "changes": [
+        {
+          "type": "api_enhancement",
+          "description": "MCP 工具函数添加 outputDir 参数支持",
+          "lines": "20-30"
+        },
+        {
+          "type": "function_signature_update",
+          "description": "更新 runComplexityAnalysis() 传递输出目录参数",
+          "lines": "146-170"
+        },
+        {
+          "type": "function_signature_update",
+          "description": "更新 findGeneratedReport() 支持自定义输出目录",
+          "lines": "305-327"
+        }
+      ]
+    }
+  ],
+  "functionality": {
+    "before": {
+      "output_location": "固定使用 './reports/' 目录",
+      "flexibility": "无法自定义输出位置"
+    },
+    "after": {
+      "output_location": "支持通过 --output/-o 参数自定义",
+      "flexibility": "可以指定任意输出目录路径",
+      "backward_compatibility": "默认值仍为 'reports'，保持向后兼容"
+    }
+  },
+  "usage_examples": [
+    {
+      "command": "node analyze-complexity.js -d ./src",
+      "description": "默认输出到 reports 目录"
+    },
+    {
+      "command": "node analyze-complexity.js -d ./src -o ./analysis",
+      "description": "输出到 analysis 目录"
+    },
+    {
+      "command": "node analyze-complexity.js -d ./src --output /absolute/path/reports",
+      "description": "输出到绝对路径"
+    }
+  ],
+  "mcp_integration": {
+    "parameter_added": "outputDir",
+    "parameter_type": "string",
+    "parameter_optional": true,
+    "parameter_default": "reports",
+    "usage": "analysisLocalTsCode({ filePath: './src/file.ts', outputDir: './custom-reports' })"
+  },
+  "quality_assurance": {
+    "backward_compatibility": "保持",
+    "default_behavior": "未指定输出目录时行为不变",
+    "parameter_validation": "支持相对路径和绝对路径",
+    "directory_creation": "自动创建输出目录"
+  },
+  "benefits": [
+    "提高工具的灵活性和可配置性",
+    "支持多项目或多环境的分析报告隔离",
+    "便于集成到不同的构建和CI/CD流程中",
+    "保持向后兼容性，不影响现有用户"
+  ]
+}

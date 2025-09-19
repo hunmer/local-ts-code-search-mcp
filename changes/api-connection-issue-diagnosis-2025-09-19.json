@@ -1,0 +1,70 @@
+{
+  "timestamp": "2025-09-19T09:30:01Z",
+  "issue": "API请求无效，找不到地址",
+  "diagnosis": {
+    "problem_type": "端口配置不一致",
+    "root_cause": "用户期望后台API端口3668，但服务器默认启动在3002",
+    "current_status": {
+      "frontend_port": 3667,
+      "expected_api_port": 3668,
+      "actual_api_port": 3002,
+      "server_running": true,
+      "api_routes_configured": true
+    }
+  },
+  "issues_identified": [
+    {
+      "type": "端口配置问题",
+      "description": "Web UI服务器启动在3667，但API端口为默认3002，不是期望的3668",
+      "location": "server.js:30, server/index.js:18",
+      "impact": "前端无法连接到正确的API端口"
+    },
+    {
+      "type": "API路由工具缺失",
+      "description": "API路由中调用了不存在的工具如list_files, read_file等",
+      "location": "server/routes/api.js:143, 166, 182等",
+      "impact": "即使端口正确，API调用也会失败"
+    },
+    {
+      "type": "静态文件服务问题",
+      "description": "Web UI使用了Vite构建的文件，但静态文件服务可能配置不当",
+      "location": "web/index.html:8-9",
+      "impact": "前端页面可能无法正确加载"
+    }
+  ],
+  "solutions": [
+    {
+      "priority": "高",
+      "description": "修改服务器端口配置，支持自定义API端口",
+      "changes_needed": [
+        "修改server.js中的端口解析逻辑，支持--api-port参数",
+        "修改server/index.js中的端口配置",
+        "更新Web UI中的API基础地址配置"
+      ]
+    },
+    {
+      "priority": "高", 
+      "description": "修复API路由中缺失的工具调用",
+      "changes_needed": [
+        "实现list_files工具或使用现有的search_local_ts_code替代",
+        "实现read_file工具或修改API路由逻辑",
+        "检查所有API路由中的工具调用是否匹配现有工具"
+      ]
+    },
+    {
+      "priority": "中",
+      "description": "优化静态文件服务",
+      "changes_needed": [
+        "确保CSS文件路径正确",
+        "检查Vite构建的资源文件路径"
+      ]
+    }
+  ],
+  "next_steps": [
+    "1. 修复端口配置，让API运行在3668端口",
+    "2. 修复API路由中的工具调用问题",
+    "3. 测试前后端连通性",
+    "4. 验证所有API端点功能"
+  ],
+  "command_to_fix": "node server.js --port 3667 --api-port 3668"
+}

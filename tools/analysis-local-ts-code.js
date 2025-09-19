@@ -1,0 +1,420 @@
+/**
+ * Analysis Local TypeScript Code Tool
+ * 
+ * 使用analyze-complexity.js分析TS文件复杂度，生成报告到reports目录
+ * 工具会自动将结果生成到 /reports/ 对应的相对多层级目录
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
+
+/**
+ * 创建分析工具的柯里化函数
+ * @param {string} dataPath 数据目录路径
+ * @param {string} codebasePath 代码库目录路径
+ * @param {object} config 配置对象
+ * @returns {function} 工具处理函数
+ */
+function createAnalysisTool(dataPath, codebasePath, config) {
+  /**
+   * 分析本地TS代码复杂度
+   * @param {object} args 参数对象
+   * @param {string} args.filePath 文件路径
+   * @param {string} [args.outputDir] 输出目录，默认为 'reports'
+   * @returns {Promise<object>} 分析结果
+   */
+  return async function analysisLocalTsCode(args) {
+    try {
+      const { filePath, outputDir } = args;
+      
+      if (!filePath) {
+        throw new Error('filePath parameter is required');
+      }
+
+      // 规范化文件路径
+      const normalizedPath = path.normalize(filePath);
+      console.log(`Analyzing file: ${normalizedPath}`);
+
+      // 检查源文件是否存在
+      // First try resolving from codebase directory
+      let absoluteSourcePath = path.isAbsolute(normalizedPath) ? normalizedPath : path.resolve(codebasePath, normalizedPath);
+      console.log(`Looking for source file at: ${absoluteSourcePath}`);
+      console.log(`Codebase directory: ${codebasePath}`);
+      
+      let fileExists = fs.existsSync(absoluteSourcePath);
+      console.log(`File exists check (codebase relative): ${fileExists}`);
+      
+      // If not found and path is relative, also try current working directory
+      if (!fileExists && !path.isAbsolute(normalizedPath)) {
+        const cwdPath = path.resolve(normalizedPath);
+        console.log(`Also checking current working directory: ${cwdPath}`);
+        console.log(`Current working directory: ${process.cwd()}`);
+        
+        if (fs.existsSync(cwdPath)) {
+          absoluteSourcePath = cwdPath;
+          fileExists = true;
+          console.log(`File found at current working directory: ${cwdPath}`);
+        }
+      }
+      
+      if (!fileExists) {
+        return {
+          success: false,
+          error: 'Source file not found',
+          filePath: normalizedPath,
+          absoluteSourcePath: absoluteSourcePath,
+          codebaseDirectory: codebasePath,
+          currentWorkingDirectory: process.cwd(),
+          suggestion: 'Please check the file path and ensure the file exists in the specified codebase directory'
+        };
+      }
+
+      // 检查文件扩展名
+      const ext = path.extname(normalizedPath).toLowerCase();
+      const allowedExtensions = config.allowedExtensions || ['.ts', '.tsx', '.js', '.jsx'];
+      
+      if (!allowedExtensions.includes(ext)) {
+        return {
+          success: false,
+          error: `Unsupported file extension: ${ext}`,
+          filePath: normalizedPath,
+          allowedExtensions: allowedExtensions
+        };
+      }
+
+      // 运行复杂度分析
+      const analysisResult = await runComplexityAnalysis(normalizedPath, absoluteSourcePath, dataPath, codebasePath, config, outputDir);
+      
+      if (!analysisResult.success) {
+        return {
+          success: false,
+          error: 'Analysis execution failed',
+          details: analysisResult.error,
+          filePath: normalizedPath,
+          stdout: analysisResult.stdout,
+          stderr: analysisResult.stderr
+        };
+      }
+
+      // 解析分析结果
+      const parsedResult = parseAnalysisOutput(analysisResult.output, analysisResult.stderr);
+      
+      // 查找生成的报告文件
+      const reportInfo = await findGeneratedReport(normalizedPath, dataPath, outputDir);
+      
+      // 询问用户是否使用parse_local_ts_code工具
+      const shouldParse = await shouldOfferParseStep(reportInfo, config);
+      
+      const result = {
+        success: true,
+        filePath: normalizedPath,
+        analysis: parsedResult,
+        reportFile: reportInfo,
+        parseRecommendation: shouldParse,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          tool: 'analysis_local_ts_code',
+          command: analysisResult.command
+        },
+        rawOutput: {
+          stdout: analysisResult.output,
+          stderr: analysisResult.stderr
+        }
+      };
+
+      // 如果建议解析且配置了自动解析，则提示
+      if (shouldParse.recommended) {
+        result.nextSteps = [
+          'Run parse_local_ts_code tool to generate annotated analysis',
+          `Command: parse_local_ts_code("${normalizedPath}")`
+        ];
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('Analysis tool error:', error);
+      return {
+        success: false,
+        error: error.message,
+        stack: config.verbose ? error.stack : undefined
+      };
+    }
+  };
+}
+
+/**
+ * 运行复杂度分析工具
+ */
+async function runComplexityAnalysis(filePath, absoluteSourcePath, dataPath, codebasePath, config, outputDir = 'reports') {
+  return new Promise((resolve) => {
+    const analyzeScript = path.join(__dirname, 'analyze-complexity.js');
+    
+    if (!fs.existsSync(analyzeScript)) {
+      resolve({
+        success: false,
+        error: `Analysis script not found: ${analyzeScript}`
+      });
+      return;
+    }
+
+    // 构建命令参数 - use the absolute source path and custom output directory
+    const resolvedOutputDir = path.isAbsolute(outputDir) ? outputDir : path.join(dataPath, outputDir);
+    const args = [analyzeScript, '-d', absoluteSourcePath, '-o', resolvedOutputDir];
+    const command = `node ${args.join(' ')}`;
+    
+    // 设置工作目录为dataPath
+    const cwd = dataPath;
+    
+    // 确保工作目录存在
+    if (!fs.existsSync(cwd)) {
+      fs.mkdirSync(cwd, { recursive: true });
+    }
+    
+    console.log(`Running: ${command}`);
+    console.log(`Working directory: ${cwd}`);
+    console.log(`Analysis script path: ${analyzeScript}`);
+    console.log(`File to analyze: ${absoluteSourcePath}`);
+
+    const child = spawn('node', args, {
+      cwd: cwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: config.tools?.analyzeComplexity?.timeout || 30000
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      const chunk = data.toString();
+      stdout += chunk;
+      if (config.verbose) {
+        console.log('[ANALYSIS STDOUT]:', chunk);
+      }
+    });
+
+    child.stderr.on('data', (data) => {
+      const chunk = data.toString();
+      stderr += chunk;
+      if (config.verbose) {
+        console.log('[ANALYSIS STDERR]:', chunk);
+      }
+    });
+
+    child.on('close', (code) => {
+      console.log(`Analysis process exited with code: ${code}`);
+      
+      if (code === 0 || stdout.trim()) {
+        // 即使退出码不为0，如果有输出也认为部分成功
+        resolve({
+          success: true,
+          output: stdout,
+          stderr: stderr,
+          command: command,
+          exitCode: code
+        });
+      } else {
+        resolve({
+          success: false,
+          error: `Analysis failed with exit code ${code}`,
+          stderr: stderr,
+          stdout: stdout,
+          command: command,
+          exitCode: code
+        });
+      }
+    });
+
+    child.on('error', (error) => {
+      console.error('Analysis process error:', error);
+      resolve({
+        success: false,
+        error: `Failed to spawn analysis process: ${error.message}`,
+        command: command
+      });
+    });
+
+    // 超时处理
+    setTimeout(() => {
+      if (!child.killed) {
+        child.kill('SIGTERM');
+        resolve({
+          success: false,
+          error: 'Analysis process timed out',
+          command: command
+        });
+      }
+    }, config.tools?.analyzeComplexity?.timeout || 30000);
+  });
+}
+
+/**
+ * 解析分析输出
+ */
+function parseAnalysisOutput(stdout, stderr) {
+  const result = {
+    summary: 'Analysis completed',
+    details: {},
+    warnings: [],
+    errors: []
+  };
+
+  // 解析标准输出中的信息
+  if (stdout) {
+    const lines = stdout.split('\n').filter(line => line.trim());
+    
+    for (const line of lines) {
+      // 解析各种输出模式
+      if (line.includes('Analyzing')) {
+        result.details.analyzedFile = line.replace('Analyzing', '').trim();
+      } else if (line.includes('Health Level:')) {
+        result.details.healthLevel = line.split(':')[1].trim();
+      } else if (line.includes('Maintainability:')) {
+        result.details.maintainability = parseFloat(line.split(':')[1].trim());
+      } else if (line.includes('Complexity:')) {
+        result.details.complexity = parseFloat(line.split(':')[1].trim());
+      } else if (line.includes('LOC:')) {
+        result.details.linesOfCode = parseInt(line.split(':')[1].trim());
+      } else if (line.includes('Functions:')) {
+        result.details.functionCount = parseInt(line.split(':')[1].trim());
+      } else if (line.includes('Classes:')) {
+        result.details.classCount = parseInt(line.split(':')[1].trim());
+      } else if (line.includes('Report saved to:')) {
+        result.details.reportPath = line.split('Report saved to:')[1].trim();
+      }
+    }
+  }
+
+  // 解析错误输出
+  if (stderr) {
+    const errorLines = stderr.split('\n').filter(line => line.trim());
+    for (const line of errorLines) {
+      if (line.toLowerCase().includes('warning')) {
+        result.warnings.push(line);
+      } else if (line.toLowerCase().includes('error')) {
+        result.errors.push(line);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 查找生成的报告文件
+ */
+async function findGeneratedReport(filePath, dataPath, outputDir = 'reports') {
+  const reportsDir = path.isAbsolute(outputDir) ? outputDir : path.join(dataPath, outputDir);
+  const normalizedPath = path.normalize(filePath);
+  
+  // 可能的报告文件路径
+  const possiblePaths = [
+    path.join(reportsDir, normalizedPath + '.json'),
+    path.join(reportsDir, path.basename(normalizedPath) + '.json'),
+    path.join(reportsDir, path.basename(normalizedPath, path.extname(normalizedPath)) + '.json')
+  ];
+
+  for (const reportPath of possiblePaths) {
+    if (fs.existsSync(reportPath)) {
+      try {
+        const stats = fs.statSync(reportPath);
+        const content = fs.readFileSync(reportPath, 'utf8');
+        const jsonData = JSON.parse(content);
+        
+        return {
+          path: reportPath,
+          relativePath: path.relative(reportsDir, reportPath),
+          size: stats.size,
+          mtime: stats.mtime,
+          exists: true,
+          valid: true,
+          preview: {
+            healthLevel: jsonData.healthLevel,
+            maintainability: jsonData.analysis?.aggregate?.maintainability,
+            complexity: jsonData.analysis?.aggregate?.complexity?.cyclomatic,
+            functionCount: jsonData.analysis?.functions?.length || 0
+          }
+        };
+      } catch (error) {
+        return {
+          path: reportPath,
+          exists: true,
+          valid: false,
+          error: `Failed to parse report: ${error.message}`
+        };
+      }
+    }
+  }
+
+  return {
+    exists: false,
+    searchedPaths: possiblePaths,
+    suggestion: 'Report file may not have been generated or saved to a different location'
+  };
+}
+
+/**
+ * 判断是否应该建议执行parse步骤
+ */
+async function shouldOfferParseStep(reportInfo, config) {
+  if (!reportInfo.exists) {
+    return {
+      recommended: false,
+      reason: 'No report file found to parse'
+    };
+  }
+
+  if (!reportInfo.valid) {
+    return {
+      recommended: false,
+      reason: 'Report file is invalid or corrupted'
+    };
+  }
+
+  // 检查parsed目录中是否已有解析结果
+  const parsedPath = reportInfo.path.replace('/reports/', '/parsed/');
+  if (fs.existsSync(parsedPath)) {
+    const parsedStats = fs.statSync(parsedPath);
+    const reportStats = fs.statSync(reportInfo.path);
+    
+    if (parsedStats.mtime >= reportStats.mtime) {
+      return {
+        recommended: false,
+        reason: 'Parsed version is up to date',
+        existing: parsedPath
+      };
+    }
+  }
+
+  // 基于复杂度和健康度决定是否建议解析
+  const preview = reportInfo.preview || {};
+  
+  let priority = 'low';
+  let reasons = [];
+  
+  if (preview.complexity > 10) {
+    priority = 'high';
+    reasons.push(`High complexity (${preview.complexity})`);
+  }
+  
+  if (preview.maintainability < 65) {
+    priority = 'high';
+    reasons.push(`Low maintainability (${preview.maintainability})`);
+  }
+  
+  if (preview.functionCount > 10) {
+    priority = 'medium';
+    reasons.push(`Many functions (${preview.functionCount})`);
+  }
+
+  return {
+    recommended: true,
+    priority: priority,
+    reasons: reasons,
+    reportPath: reportInfo.path,
+    message: `Analysis complete. ${reasons.length > 0 ? 'Consider parsing for detailed insights: ' + reasons.join(', ') : 'Ready for parsing.'}`
+  };
+}
+
+module.exports = createAnalysisTool;
