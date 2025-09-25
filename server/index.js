@@ -15,7 +15,7 @@ const ApiRouter = require('./routes/api');
 class WebServer {
   constructor(mcpServer, options = {}) {
     this.mcpServer = mcpServer;
-    this.port = options.port || mcpServer.apiPort || 3002;
+    this.port = options.port || mcpServer.apiPort || 8879;
     this.staticPath = options.staticPath || path.join(__dirname, '..', 'web');
     this.apiRouter = new ApiRouter(mcpServer);
   }

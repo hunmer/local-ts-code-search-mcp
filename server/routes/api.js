@@ -6,6 +6,7 @@
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
+const StreamingMiddleware = require('../middleware/streaming');
 
 class ApiRouter {
   constructor(mcpServer) {
@@ -28,6 +29,14 @@ class ApiRouter {
 
       if (pathname === '/api/call' && method === 'POST') {
         return await this.callTool(req, res);
+      }
+
+      if (pathname === '/prompts/list' && method === 'GET') {
+        return await this.getPrompts(req, res);
+      }
+
+      if (pathname === '/ping' && method === 'GET') {
+        return await this.ping(req, res);
       }
 
       if (pathname === '/api/health' && method === 'GET') {
@@ -62,6 +71,23 @@ class ApiRouter {
         return await this.handleSettings(req, res);
       }
 
+      // 流式API路由
+      if (pathname === '/api/stream/call' && method === 'POST') {
+        return await this.streamCall(req, res);
+      }
+
+      if (pathname === '/api/stream/analyze' && method === 'POST') {
+        return await this.streamAnalyze(req, res);
+      }
+
+      if (pathname === '/api/stream/search' && method === 'POST') {
+        return await this.streamSearch(req, res);
+      }
+
+      if (pathname === '/api/stream/test' && method === 'GET') {
+        return await this.streamTest(req, res);
+      }
+
       // 未找到匹配的路由
       return false;
     } catch (error) {
@@ -92,6 +118,30 @@ class ApiRouter {
       const { tool, args } = JSON.parse(body);
       const result = await this.mcpServer.callTool(tool, args);
       this.sendJson(res, result);
+    } catch (error) {
+      this.sendError(res, 500, error.message);
+    }
+  }
+
+  /**
+   * 获取可用Prompts列表
+   */
+  async getPrompts(req, res) {
+    try {
+      const prompts = await this.mcpServer.handleMCPRequest({ method: 'prompts/list' });
+      this.sendJson(res, prompts);
+    } catch (error) {
+      this.sendError(res, 500, error.message);
+    }
+  }
+
+  /**
+   * Ping端点 - 连通性测试
+   */
+  async ping(req, res) {
+    try {
+      const pingResult = await this.mcpServer.handleMCPRequest({ method: 'ping' });
+      this.sendJson(res, pingResult);
     } catch (error) {
       this.sendError(res, 500, error.message);
     }
@@ -431,6 +481,210 @@ class ApiRouter {
       res.writeHead(statusCode, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: message }));
     }
+  }
+
+  /**
+   * 流式工具调用
+   */
+  async streamCall(req, res) {
+    StreamingMiddleware.setupSSE(res);
+
+    try {
+      const body = await this.readRequestBody(req);
+      const { tool, args, options = {} } = JSON.parse(body);
+
+      StreamingMiddleware.setupCleanup(req, res);
+
+      const toolHandler = this.mcpServer.tools.get(tool);
+      if (!toolHandler) {
+        StreamingMiddleware.sendSSEData(res, { error: `Unknown tool: ${tool}` }, 'error');
+        StreamingMiddleware.endStream(res);
+        return true;
+      }
+
+      // 执行流式工具调用
+      await StreamingMiddleware.executeStreamingTool(
+        res,
+        toolHandler.handler,
+        args,
+        {
+          enableProgress: options.enableProgress !== false,
+          estimatedSteps: options.estimatedSteps || 10,
+          chunkSize: options.chunkSize || 1024 * 4
+        }
+      );
+
+      StreamingMiddleware.endStream(res, { type: 'completed', timestamp: new Date().toISOString() });
+
+    } catch (error) {
+      console.error('Stream call error:', error);
+      StreamingMiddleware.sendSSEData(res, {
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }, 'error');
+      StreamingMiddleware.endStream(res);
+    }
+
+    return true;
+  }
+
+  /**
+   * 流式代码分析
+   */
+  async streamAnalyze(req, res) {
+    StreamingMiddleware.setupSSE(res);
+
+    try {
+      const body = await this.readRequestBody(req);
+      const { filePath, type, options = {} } = JSON.parse(body);
+
+      StreamingMiddleware.setupCleanup(req, res);
+
+      let toolName;
+      if (type === 'parse') {
+        toolName = 'parse_local_ts_code';
+      } else if (type === 'analyze') {
+        toolName = 'analysis_local_ts_code';
+      } else {
+        StreamingMiddleware.sendSSEData(res, { error: 'Invalid analysis type' }, 'error');
+        StreamingMiddleware.endStream(res);
+        return true;
+      }
+
+      const toolHandler = this.mcpServer.tools.get(toolName);
+      if (!toolHandler) {
+        StreamingMiddleware.sendSSEData(res, { error: `Tool not found: ${toolName}` }, 'error');
+        StreamingMiddleware.endStream(res);
+        return true;
+      }
+
+      // 执行流式分析
+      await StreamingMiddleware.executeStreamingTool(
+        res,
+        toolHandler.handler,
+        { filePath },
+        {
+          enableProgress: options.enableProgress !== false,
+          estimatedSteps: type === 'analyze' ? 15 : 8, // analyze 更复杂
+          chunkSize: options.chunkSize || 1024 * 8
+        }
+      );
+
+      StreamingMiddleware.endStream(res, { type: 'completed', timestamp: new Date().toISOString() });
+
+    } catch (error) {
+      console.error('Stream analyze error:', error);
+      StreamingMiddleware.sendSSEData(res, {
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }, 'error');
+      StreamingMiddleware.endStream(res);
+    }
+
+    return true;
+  }
+
+  /**
+   * 流式搜索
+   */
+  async streamSearch(req, res) {
+    StreamingMiddleware.setupSSE(res);
+
+    try {
+      const body = await this.readRequestBody(req);
+      const { query, path: searchPath, options = {} } = JSON.parse(body);
+
+      StreamingMiddleware.setupCleanup(req, res);
+
+      const toolHandler = this.mcpServer.tools.get('search_local_ts_code');
+      if (!toolHandler) {
+        StreamingMiddleware.sendSSEData(res, { error: 'Search tool not found' }, 'error');
+        StreamingMiddleware.endStream(res);
+        return true;
+      }
+
+      // 执行流式搜索
+      await StreamingMiddleware.executeStreamingTool(
+        res,
+        toolHandler.handler,
+        {
+          filePath: searchPath || this.mcpServer.codebasePath,
+          query: query,
+          ...options
+        },
+        {
+          enableProgress: options.enableProgress !== false,
+          estimatedSteps: 12,
+          chunkSize: options.chunkSize || 1024 * 6
+        }
+      );
+
+      StreamingMiddleware.endStream(res, { type: 'completed', timestamp: new Date().toISOString() });
+
+    } catch (error) {
+      console.error('Stream search error:', error);
+      StreamingMiddleware.sendSSEData(res, {
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }, 'error');
+      StreamingMiddleware.endStream(res);
+    }
+
+    return true;
+  }
+
+  /**
+   * 流式测试端点
+   */
+  async streamTest(req, res) {
+    StreamingMiddleware.setupSSE(res);
+    StreamingMiddleware.setupCleanup(req, res);
+
+    try {
+      const progressReporter = StreamingMiddleware.createProgressReporter(res, 10);
+
+      StreamingMiddleware.sendSSEData(res, {
+        message: '开始流式测试...',
+        timestamp: new Date().toISOString()
+      }, 'info');
+
+      // 模拟一些处理步骤
+      for (let i = 1; i <= 10; i++) {
+        await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+
+        progressReporter.update(1, `执行步骤 ${i}/10`);
+
+        StreamingMiddleware.sendSSEData(res, {
+          step: i,
+          message: `完成步骤 ${i}`,
+          timestamp: new Date().toISOString(),
+          data: { stepResult: `步骤 ${i} 的结果数据` }
+        }, 'step');
+      }
+
+      progressReporter.complete('测试完成');
+
+      StreamingMiddleware.sendSSEData(res, {
+        message: '所有测试步骤完成',
+        totalSteps: 10,
+        duration: '5秒',
+        timestamp: new Date().toISOString()
+      }, 'final');
+
+      StreamingMiddleware.endStream(res, {
+        type: 'test_completed',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('Stream test error:', error);
+      StreamingMiddleware.sendSSEData(res, {
+        error: error.message
+      }, 'error');
+      StreamingMiddleware.endStream(res);
+    }
+
+    return true;
   }
 }
 

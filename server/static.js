@@ -10,7 +10,7 @@ const url = require('url');
 
 class StaticServer {
   constructor(options = {}) {
-    this.port = options.port || 3002;
+    this.port = options.port || 8879;
     this.staticPath = options.staticPath || path.join(__dirname, '..', 'web');
     this.apiPort = options.apiPort || (this.port + 1);
   }

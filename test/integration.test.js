@@ -12,7 +12,7 @@ class MCPIntegrationTest {
     constructor() {
         this.serverProcess = null;
         this.testResults = [];
-        this.serverPort = 3002; // Use different port for testing
+        this.serverPort = 8879; // Use different port for testing
     }
 
     /**

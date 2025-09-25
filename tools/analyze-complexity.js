@@ -12,7 +12,8 @@ function parseArgs() {
   const args = process.argv.slice(2);
   let targetDir = '.';
   let outputDir = 'reports'; // 默认导出目录
-  
+  let baseDir = null; // 基础目录，用于保持目录结构
+
   // 简单参数解析
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir' || args[i] === '-d') {
@@ -21,12 +22,15 @@ function parseArgs() {
     } else if (args[i] === '--output' || args[i] === '-o') {
       outputDir = args[i + 1] || 'reports';
       i++; // 跳过下一个参数
+    } else if (args[i] === '--base') {
+      baseDir = args[i + 1] || null;
+      i++; // 跳过下一个参数
     } else if (!args[i].startsWith('-')) {
       targetDir = args[i];
     }
   }
-  
-  return { targetDir, outputDir };
+
+  return { targetDir, outputDir, baseDir };
 }
 
 /**
@@ -44,7 +48,8 @@ function getAllTsFiles(dir, fileList = []) {
       if (!['node_modules', '.git', '.next', 'dist', 'build'].includes(file)) {
         getAllTsFiles(filePath, fileList);
       }
-    } else if (file.endsWith('.ts') || file.endsWith('.tsx')) {
+    } else if (file.endsWith('.ts') || file.endsWith('.tsx') ||
+               file.endsWith('.js') || file.endsWith('.jsx')) {
       fileList.push(filePath);
     }
   });
@@ -874,27 +879,31 @@ function ensureDir(dirPath) {
 /**
  * 保存分析结果到指定输出目录
  */
-function saveResult(result, baseDir, outputDir) {
+function saveResult(result, baseDir, outputDir, customBaseDir = null) {
   let relativePath;
-  
-  if (fs.statSync(baseDir).isFile()) {
-    // 如果 baseDir 是文件，使用文件名
+
+  // 如果提供了自定义基础目录（项目根目录），使用它来计算相对路径
+  if (customBaseDir && fs.existsSync(customBaseDir)) {
+    // customBaseDir 应该始终指向项目根目录
+    relativePath = path.relative(customBaseDir, result.filePath);
+  } else if (fs.existsSync(baseDir) && fs.statSync(baseDir).isFile()) {
+    // 如果 baseDir 是文件，使用文件名（向后兼容单文件模式）
     relativePath = path.basename(result.filePath);
   } else {
     // 如果 baseDir 是目录，使用相对路径
     relativePath = path.relative(baseDir, result.filePath);
   }
-  
+
   const reportPath = path.join(outputDir, relativePath);
   const reportDir = path.dirname(reportPath);
-  
+
   // 确保报告目录存在
   ensureDir(reportDir);
-  
+
   // 保存详细分析结果
-  const reportFile = reportPath.replace(/\.(ts|tsx)$/, '.json');
+  const reportFile = reportPath.replace(/\.(ts|tsx|js|jsx)$/, '.json');
   fs.writeFileSync(reportFile, JSON.stringify(result, null, 2));
-  
+
   return reportFile;
 }
 
@@ -939,7 +948,7 @@ function updateHealthIndex(result, outputDir) {
  * 主函数
  */
 async function main() {
-  const { targetDir, outputDir } = parseArgs();
+  const { targetDir, outputDir, baseDir } = parseArgs();
   
   console.log(`Analyzing TypeScript files in: ${path.resolve(targetDir)}`);
   console.log(`Output directory: ${path.resolve(outputDir)}`);
@@ -952,10 +961,11 @@ async function main() {
   
   if (stat.isFile()) {
     // 如果是单个文件
-    if (targetPath.endsWith('.ts') || targetPath.endsWith('.tsx')) {
+    if (targetPath.endsWith('.ts') || targetPath.endsWith('.tsx') ||
+        targetPath.endsWith('.js') || targetPath.endsWith('.jsx')) {
       tsFiles = [targetPath];
     } else {
-      console.log('The specified file is not a TypeScript file.');
+      console.log('The specified file is not a TypeScript/JavaScript file.');
       return;
     }
   } else if (stat.isDirectory()) {
@@ -993,7 +1003,7 @@ async function main() {
       const result = await analyzeFile(filePath, targetPath);
       if (result) {
         // 保存详细结果
-        saveResult(result, targetDir, outputDir);
+        saveResult(result, targetDir, outputDir, baseDir);
         
         // 更新健康度索引
         updateHealthIndex(result, outputDir);

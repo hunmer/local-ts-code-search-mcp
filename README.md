@@ -305,7 +305,7 @@ curl -X POST http://localhost:3668/api/call \
 **Web UI connection errors:**
 - Verify server is running: check console output
 - Check firewall settings
-- Try a different port: `node server.js --port 3002`
+- Try a different port: `node server.js --port 8879`
 
 ### Debug Mode
 

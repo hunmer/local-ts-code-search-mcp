@@ -42,11 +42,11 @@
 
 ### 1. 启动服务器
 ```bash
-# 使用默认端口3002
+# 使用默认端口8879
 node server.js
 
 # 自定义端口和路径
-node server.js --port 3002 --data-path ./data --codebase-path ../my-project
+node server.js --port 8879 --data-path ./data --codebase-path ../my-project
 ```
 
 ### 2. 访问Web UI

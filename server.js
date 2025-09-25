@@ -7,7 +7,7 @@
  * 
  * 启动参数:
  * --data-path: 数据保存目录 (默认: ./data)
- * --port: WebUI端口 (默认: 3002)
+ * --port: WebUI端口 (默认: 8879)
  */
 
 const fs = require('fs');
@@ -22,12 +22,13 @@ const analysisLocalTsCode = require('./tools/analysis-local-ts-code');
 const saveChangeLocatorResult = require('./tools/save-change-locator-result');
 const compareDirectoriesTool = require('./tools/compare-directories-mcp');
 const parseLocalTsCode = require('./tools/parse-local-ts-code');
+const { enhanceToolWithStreaming } = require('./tools/streaming-search-wrapper');
 
 class MCPServer {
   constructor(options = {}) {
     this.dataPath = options.dataPath || path.join(__dirname, 'data');
     this.codebasePath = options.codebasePath || process.cwd();
-    this.port = options.port || 3002;  // Web UI端口
+    this.port = options.port || 8879;  // Web UI端口
     this.apiPort = options.apiPort || this.port + 1;  // API端口，默认为Web UI端口+1
     this.enableWebUI = options.enableWebUI !== false;  // 默认启用Web UI
     this.config = this.loadConfig();
@@ -95,7 +96,7 @@ class MCPServer {
         properties: {
           filePath: {
             type: 'string',
-            description: '要搜索的文件路径'
+            description: '要搜索的文件路径或目录路径。如果是目录，将遍历目录下所有符合条件的文件'
           },
           query: {
             type: 'string', 
@@ -129,7 +130,7 @@ class MCPServer {
         properties: {
           filePath: {
             type: 'string',
-            description: '要分析的文件路径'
+            description: '要分析的文件路径或目录路径。如果是目录，将遍历目录下所有符合条件的文件'
           },
           outputDir: {
             type: 'string',
@@ -200,7 +201,7 @@ class MCPServer {
         properties: {
           filePath: {
             type: 'string',
-            description: '要解析的文件路径'
+            description: '要解析的文件路径或目录路径。如果是目录，将遍历目录下所有报告文件进行解析'
           },
           reportsDir: {
             type: 'string',
@@ -272,10 +273,22 @@ class MCPServer {
     };
 
     this.prompts.set('change_locator', {
-      id: 'change_locator',
-      name: 'Change Locator',
+      name: 'change_locator',
+      title: 'Change Locator',
       description: '变更定位器 - 根据功能需求快速定位应修改的代码位置并生成执行计划',
-      arguments: changeLocatorSchema
+      arguments: [
+        {
+          name: 'requirement',
+          description: '功能需求对象，包含目标、验收标准和关键词',
+          required: true
+        },
+        {
+          name: 'options',
+          description: '可选配置项，包含限制数量、工作目录等',
+          required: false
+        }
+      ],
+      schema: changeLocatorSchema  // 保留完整schema用于prompts/get
     });
 
     console.error(`Registered ${this.prompts.size} prompts: ${Array.from(this.prompts.keys()).join(', ')}`);
@@ -317,8 +330,8 @@ class MCPServer {
         case 'prompts/list':
           return {
             prompts: Array.from(this.prompts.values()).map(prompt => ({
-              id: prompt.id,
               name: prompt.name,
+              title: prompt.title,
               description: prompt.description,
               arguments: prompt.arguments
             }))
@@ -326,6 +339,9 @@ class MCPServer {
 
         case 'prompts/get':
           return await this.getPrompt(params.name, params.arguments || {});
+
+        case 'ping':
+          return {};
 
         case 'notifications/initialized':
           // Handle initialization notification - no response needed
@@ -571,7 +587,7 @@ Usage: node server.js [OPTIONS]
 Options:
   --data-path <path>      Data directory path (default: ./data)
   --codebase-path <path>  Codebase directory path (default: current working directory)
-  --port <number>         Web UI port (default: 3002)
+  --port <number>         Web UI port (default: 8879)
   --api-port <number>     API port (default: Web UI port + 1)
   --help                  Show this help message
 

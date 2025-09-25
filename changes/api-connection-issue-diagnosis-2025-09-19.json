@@ -3,11 +3,11 @@
   "issue": "API请求无效，找不到地址",
   "diagnosis": {
     "problem_type": "端口配置不一致",
-    "root_cause": "用户期望后台API端口3668，但服务器默认启动在3002",
+    "root_cause": "用户期望后台API端口3668，但服务器默认启动在8879",
     "current_status": {
       "frontend_port": 3667,
       "expected_api_port": 3668,
-      "actual_api_port": 3002,
+      "actual_api_port": 8879,
       "server_running": true,
       "api_routes_configured": true
     }
@@ -15,7 +15,7 @@
   "issues_identified": [
     {
       "type": "端口配置问题",
-      "description": "Web UI服务器启动在3667，但API端口为默认3002，不是期望的3668",
+      "description": "Web UI服务器启动在3667，但API端口为默认8879，不是期望的3668",
       "location": "server.js:30, server/index.js:18",
       "impact": "前端无法连接到正确的API端口"
     },

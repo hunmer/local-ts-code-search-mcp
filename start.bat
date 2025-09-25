@@ -53,8 +53,8 @@ echo   --help                 Show this help message
 echo.
 echo Examples:
 echo   start.bat
-echo   start.bat --port 3002
-echo   start.bat --data-path ./my-data --port 3002
+echo   start.bat --port 8879
+echo   start.bat --data-path ./my-data --port 8879
 pause
 exit /b 0
 

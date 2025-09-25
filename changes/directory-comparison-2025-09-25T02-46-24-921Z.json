@@ -1,0 +1,16 @@
+{
+  "timestamp": "2025-09-25T02:46:24.920Z",
+  "comparison": {
+    "reportsDirectory": "D:\\programming\\local_ts_code_search_mcp\\data\\reports",
+    "parsedDirectory": "D:\\programming\\local_ts_code_search_mcp\\data\\parsed",
+    "statistics": {
+      "totalReportsFiles": 2,
+      "totalParsedFiles": 0,
+      "missingInParsedCount": 2
+    },
+    "missingInParsed": [
+      "excellent.json",
+      "layout.json"
+    ]
+  }
+}

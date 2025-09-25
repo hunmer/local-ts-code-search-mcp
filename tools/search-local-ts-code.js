@@ -1,13 +1,16 @@
 /**
  * Search Local TypeScript Code Tool
- * 
+ *
  * 搜索parsed目录下对应的文件，如果不存在则尝试使用analysis工具生成
  * 使用json-search.js进行搜索，使用Change Locator角色整理信息
+ *
+ * 现在支持目录遍历：如果filePath是目录，则遍历目录下所有符合条件的文件
  */
 
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { checkPathType, traverseDirectory, getRelativePath, batchProcessFiles, createProgressReporter } = require('./directory-traversal-utils');
 
 /**
  * 创建搜索工具的柯里化函数
@@ -20,7 +23,7 @@ function createSearchTool(dataPath, codebasePath, config) {
   /**
    * 搜索本地TS代码
    * @param {object} args 参数对象
-   * @param {string} args.filePath 文件路径
+   * @param {string} args.filePath 文件路径或目录路径
    * @param {string} [args.query] 搜索查询参数
    * @param {string} [args.searchDir] 搜索基础目录
    * @param {string} [args.reportsDir] reports目录路径
@@ -30,82 +33,52 @@ function createSearchTool(dataPath, codebasePath, config) {
   return async function searchLocalTsCode(args) {
     try {
       const { filePath, query, searchDir, reportsDir, parsedDir } = args;
-      
+
       if (!filePath) {
         throw new Error('filePath parameter is required');
       }
 
       // 规范化文件路径
       const normalizedPath = path.normalize(filePath);
-      
-      // 确定目录路径
-      const resolvedParsedDir = parsedDir ? path.resolve(parsedDir) : path.join(dataPath, 'parsed');
-      const targetFilePath = path.join(resolvedParsedDir, normalizedPath + '.json');
 
-      console.log(`Searching for: ${normalizedPath}`);
-      console.log(`Target file: ${targetFilePath}`);
+      // 检查路径类型
+      const pathInfo = await checkPathType(normalizedPath, codebasePath);
 
-      // 检查parsed目录下是否存在对应文件
-      if (!fs.existsSync(targetFilePath)) {
-        console.log('Parsed file not found, attempting to analyze...');
-        
-        // 尝试使用analysis_local_ts_code生成文件
-        try {
-          const outputDir = reportsDir || path.join(dataPath, 'reports');
-          const analysisResult = await runAnalysis(filePath, codebasePath, dataPath, config, outputDir);
-          if (!analysisResult.success) {
-            return {
-              success: false,
-              error: 'Failed to generate analysis for the file',
-              details: analysisResult.error,
-              suggestion: 'Please ensure the source file exists and is a valid TypeScript/JavaScript file'
-            };
-          }
-        } catch (analysisError) {
-          return {
-            success: false,
-            error: 'Analysis failed',
-            details: analysisError.message,
-            filePath: normalizedPath
-          };
-        }
-      }
-
-      // 使用json-search.js搜索文件
-      const searchOptions = {
-        searchDir: searchDir,
-        reportsDir: reportsDir,
-        parsedDir: parsedDir
-      };
-      const searchResult = await runJsonSearch(targetFilePath, query, config, searchOptions);
-      
-      if (!searchResult.success) {
+      if (!pathInfo.exists) {
         return {
           success: false,
-          error: 'Search failed',
-          details: searchResult.error,
-          filePath: normalizedPath
+          error: 'Path not found',
+          filePath: normalizedPath,
+          absolutePath: pathInfo.absolutePath,
+          suggestion: 'Please check the file or directory path and ensure it exists'
         };
       }
 
-      // 使用Change Locator角色整理信息
-      const locatorResult = await applyChangeLocator(searchResult.data, {
-        filePath: normalizedPath,
-        query: query || 'general_search'
-      });
+      // 如果是目录，进行目录遍历搜索
+      if (pathInfo.isDirectory) {
+        return await searchDirectory(pathInfo.absolutePath, {
+          query,
+          searchDir,
+          reportsDir,
+          parsedDir,
+          dataPath,
+          codebasePath,
+          config,
+          originalPath: normalizedPath
+        });
+      }
 
-      return {
-        success: true,
-        filePath: normalizedPath,
-        searchQuery: query,
-        results: searchResult.data,
-        changeLocatorAnalysis: locatorResult,
-        metadata: {
-          targetFile: targetFilePath,
-          timestamp: new Date().toISOString(),
-          tool: 'search_local_ts_code'
-        }
-      };
+      // 处理单个文件的搜索逻辑
+      return await searchSingleFile(pathInfo.absolutePath, {
+        query,
+        searchDir,
+        reportsDir,
+        parsedDir,
+        dataPath,
+        codebasePath,
+        config,
+        originalPath: normalizedPath
+      });
 
     } catch (error) {
       console.error('Search tool error:', error);
@@ -119,12 +92,232 @@ function createSearchTool(dataPath, codebasePath, config) {
 }
 
 /**
+ * 搜索单个文件
+ */
+async function searchSingleFile(absoluteFilePath, options) {
+  const { query, searchDir, reportsDir, parsedDir, dataPath, codebasePath, config, originalPath } = options;
+
+  try {
+    const relativePath = getRelativePath(absoluteFilePath, codebasePath);
+
+    // 确定目录路径
+    const resolvedParsedDir = parsedDir ? path.resolve(parsedDir) : path.join(dataPath, 'parsed');
+    const targetFilePath = path.join(resolvedParsedDir, relativePath + '.json');
+
+    console.log(`Searching for: ${relativePath}`);
+    console.log(`Target file: ${targetFilePath}`);
+
+    // 检查parsed目录下是否存在对应文件
+    if (!fs.existsSync(targetFilePath)) {
+      console.log('Parsed file not found, attempting to analyze...');
+
+      // 尝试使用analysis_local_ts_code生成文件
+      try {
+        const outputDir = reportsDir || path.join(dataPath, 'reports');
+        const analysisResult = await runAnalysis(relativePath, codebasePath, dataPath, config, outputDir);
+        if (!analysisResult.success) {
+          return {
+            success: false,
+            error: 'Failed to generate analysis for the file',
+            details: analysisResult.error,
+            filePath: relativePath,
+            suggestion: 'Please ensure the source file exists and is a valid TypeScript/JavaScript file'
+          };
+        }
+      } catch (analysisError) {
+        return {
+          success: false,
+          error: 'Analysis failed',
+          details: analysisError.message,
+          filePath: relativePath
+        };
+      }
+    }
+
+    // 使用json-search.js搜索文件
+    const searchOptions = {
+      searchDir: searchDir,
+      reportsDir: reportsDir,
+      parsedDir: parsedDir
+    };
+    const searchResult = await runJsonSearch(targetFilePath, query, config, searchOptions);
+
+    if (!searchResult.success) {
+      return {
+        success: false,
+        error: 'Search failed',
+        details: searchResult.error,
+        filePath: relativePath
+      };
+    }
+
+    // 使用Change Locator角色整理信息
+    const locatorResult = await applyChangeLocator(searchResult.data, {
+      filePath: relativePath,
+      query: query || 'general_search'
+    });
+
+    return {
+      success: true,
+      filePath: relativePath,
+      absolutePath: absoluteFilePath,
+      searchQuery: query,
+      results: searchResult.data,
+      changeLocatorAnalysis: locatorResult,
+      metadata: {
+        targetFile: targetFilePath,
+        timestamp: new Date().toISOString(),
+        tool: 'search_local_ts_code',
+        type: 'single_file'
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      filePath: originalPath,
+      absolutePath: absoluteFilePath
+    };
+  }
+}
+
+/**
+ * 搜索整个目录
+ */
+async function searchDirectory(absoluteDirPath, options) {
+  const { query, searchDir, reportsDir, parsedDir, dataPath, codebasePath, config, originalPath } = options;
+
+  try {
+    console.log(`Searching directory: ${absoluteDirPath}`);
+
+    // 遍历目录获取所有符合条件的文件
+    const allowedExtensions = config.allowedExtensions || ['.ts', '.tsx', '.js', '.jsx'];
+    const filePaths = await traverseDirectory(absoluteDirPath, {
+      allowedExtensions,
+      maxFiles: config.maxFilesPerDirectory || 100,
+      excludePatterns: ['node_modules', '.git', 'dist', 'build', '.next', 'coverage']
+    });
+
+    if (filePaths.length === 0) {
+      return {
+        success: false,
+        error: 'No supported files found in directory',
+        directoryPath: originalPath,
+        absolutePath: absoluteDirPath,
+        searchedExtensions: allowedExtensions,
+        suggestion: 'Check if the directory contains TypeScript or JavaScript files'
+      };
+    }
+
+    console.log(`Found ${filePaths.length} files to search`);
+
+    // 创建进度报告器
+    const reportProgress = createProgressReporter(filePaths.length, 'Searching files');
+
+    // 批量处理文件
+    const processor = async (filePath) => {
+      const result = await searchSingleFile(filePath, {
+        query,
+        searchDir,
+        reportsDir,
+        parsedDir,
+        dataPath,
+        codebasePath,
+        config,
+        originalPath: getRelativePath(filePath, codebasePath)
+      });
+
+      const progress = reportProgress();
+      if (config.verbose) {
+        console.log(progress.message);
+      }
+
+      return result;
+    };
+
+    const batchResult = await batchProcessFiles(filePaths, processor, {
+      maxConcurrency: config.maxConcurrency || 3,
+      stopOnError: false
+    });
+
+    // 整理结果
+    const successfulResults = batchResult.results.filter(r => r.success && r.result.success);
+    const failedResults = batchResult.results.filter(r => !r.success || !r.result.success);
+
+    // 合并所有搜索结果
+    const allSearchResults = [];
+    const allChangeLocatorAnalyses = [];
+
+    for (const result of successfulResults) {
+      if (result.result.results && result.result.results.length > 0) {
+        allSearchResults.push(...result.result.results);
+      }
+      if (result.result.changeLocatorAnalysis) {
+        allChangeLocatorAnalyses.push({
+          filePath: result.result.filePath,
+          analysis: result.result.changeLocatorAnalysis
+        });
+      }
+    }
+
+    // 生成目录级别的Change Locator分析
+    const directoryLocatorAnalysis = await applyChangeLocator(allSearchResults, {
+      filePath: originalPath,
+      query: query || 'directory_search',
+      isDirectory: true,
+      fileCount: filePaths.length,
+      matchCount: allSearchResults.length
+    });
+
+    return {
+      success: true,
+      directoryPath: originalPath,
+      absolutePath: absoluteDirPath,
+      searchQuery: query,
+      summary: {
+        totalFiles: filePaths.length,
+        searchedFiles: batchResult.summary.total,
+        successfulSearches: batchResult.summary.successful,
+        failedSearches: batchResult.summary.failed,
+        totalMatches: allSearchResults.length
+      },
+      results: allSearchResults,
+      fileResults: successfulResults.map(r => ({
+        filePath: r.result.filePath,
+        matchCount: r.result.results ? r.result.results.length : 0,
+        success: r.result.success
+      })),
+      failures: failedResults.map(r => ({
+        filePath: r.filePath,
+        error: r.error || (r.result ? r.result.error : 'Unknown error')
+      })),
+      changeLocatorAnalysis: directoryLocatorAnalysis,
+      individualAnalyses: allChangeLocatorAnalyses,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        tool: 'search_local_ts_code',
+        type: 'directory_search'
+      }
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      directoryPath: originalPath,
+      absolutePath: absoluteDirPath,
+      stack: config.verbose ? error.stack : undefined
+    };
+  }
+}
+
+/**
  * 运行分析工具生成数据
  */
 async function runAnalysis(filePath, codebasePath, dataPath, config, outputDir = null) {
   return new Promise((resolve) => {
     const analyzeScript = path.join(__dirname, 'analyze-complexity.js');
-    
+
     if (!fs.existsSync(analyzeScript)) {
       resolve({
         success: false,
@@ -135,18 +328,18 @@ async function runAnalysis(filePath, codebasePath, dataPath, config, outputDir =
 
     // 使用codebasePath解析源文件路径
     const absoluteFilePath = path.isAbsolute(filePath) ? filePath : path.resolve(codebasePath, filePath);
-    
+
     // 确保数据目录存在
     if (!fs.existsSync(dataPath)) {
       fs.mkdirSync(dataPath, { recursive: true });
     }
-    
+
     // 构建命令参数
     const args = [analyzeScript, '-d', absoluteFilePath];
     if (outputDir) {
       args.push('-o', outputDir);
     }
-    
+
     const child = spawn('node', args, {
       cwd: dataPath,
       stdio: ['pipe', 'pipe', 'pipe']
@@ -195,7 +388,7 @@ async function runAnalysis(filePath, codebasePath, dataPath, config, outputDir =
 async function runJsonSearch(targetFile, query, config, searchOptions = {}) {
   return new Promise((resolve) => {
     const searchScript = path.join(__dirname, 'json-search.js');
-    
+
     if (!fs.existsSync(searchScript)) {
       resolve({
         success: false,
@@ -206,7 +399,7 @@ async function runJsonSearch(targetFile, query, config, searchOptions = {}) {
 
     // 构建搜索参数
     const args = ['node', searchScript, '--target', targetFile];
-    
+
     // 添加目录参数
     if (searchOptions.searchDir) {
       args.push('--search-dir', searchOptions.searchDir);
@@ -217,7 +410,7 @@ async function runJsonSearch(targetFile, query, config, searchOptions = {}) {
     if (searchOptions.parsedDir) {
       args.push('--parsed-dir', searchOptions.parsedDir);
     }
-    
+
     if (query) {
       // 尝试解析查询参数
       try {
@@ -308,7 +501,7 @@ function parseSearchQuery(query) {
 function parseJsonSearchOutput(output) {
   const lines = output.split('\n').filter(line => line.trim());
   const results = [];
-  
+
   let currentResult = null;
   for (const line of lines) {
     if (line.match(/^\d+\.\s+/)) {
@@ -316,7 +509,7 @@ function parseJsonSearchOutput(output) {
       if (currentResult) {
         results.push(currentResult);
       }
-      
+
       const match = line.match(/^(\d+)\.\s+(.+?)\s+\((.+?)\)$/);
       if (match) {
         currentResult = {
@@ -336,11 +529,11 @@ function parseJsonSearchOutput(output) {
       }
     }
   }
-  
+
   if (currentResult) {
     results.push(currentResult);
   }
-  
+
   return results;
 }
 
@@ -353,14 +546,18 @@ async function applyChangeLocator(searchData, context) {
     const analysis = {
       matches: [],
       plan_draft: {
-        summary: `Code search analysis for ${context.filePath}`,
+        summary: context.isDirectory
+          ? `Directory search analysis for ${context.filePath} (${context.fileCount} files, ${context.matchCount} matches)`
+          : `Code search analysis for ${context.filePath}`,
         steps: [],
         risks: []
       },
       tooling: {
         lookups: [`search_local_ts_code: ${context.filePath}`],
         errors: [],
-        notes: `Found ${searchData.length} matches`
+        notes: context.isDirectory
+          ? `Found ${searchData.length} matches across ${context.fileCount} files`
+          : `Found ${searchData.length} matches`
       }
     };
 
@@ -386,7 +583,9 @@ async function applyChangeLocator(searchData, context) {
     if (analysis.matches.length > 0) {
       analysis.plan_draft.steps.push({
         id: 'STEP-1',
-        title: 'Review search results and determine next actions',
+        title: context.isDirectory
+          ? 'Review directory search results and determine actions for each file'
+          : 'Review search results and determine next actions',
         can_parallel: true,
         file_map: analysis.matches.map(match => ({
           path: match.file,
@@ -454,13 +653,13 @@ function extractSignals(result) {
  */
 function calculateConfidence(result) {
   let confidence = 0.5; // 基础置信度
-  
+
   if (result.details) {
     if (result.details.Health) confidence += 0.2;
     if (result.details.Maintainability) confidence += 0.2;
     if (result.details.Functions) confidence += 0.1;
   }
-  
+
   return Math.min(confidence, 1.0);
 }
 
@@ -481,22 +680,22 @@ function assessImpact(result) {
  */
 function generateSuggestedActions(result) {
   const actions = [];
-  
+
   if (result.type === 'parsed') {
     actions.push({ action: 'review', why: 'Parsed data available for analysis' });
   }
-  
+
   if (result.details && result.details.Health) {
     const health = result.details.Health.toLowerCase();
     if (health.includes('poor')) {
       actions.push({ action: 'refactor', why: 'Health indicates code quality issues' });
     }
   }
-  
+
   if (actions.length === 0) {
     actions.push({ action: 'examine', why: 'Found in search results' });
   }
-  
+
   return actions;
 }
 

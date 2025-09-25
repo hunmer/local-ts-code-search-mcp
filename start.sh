@@ -44,8 +44,8 @@ while [[ $# -gt 0 ]]; do
             echo
             echo "Examples:"
             echo "  $0"
-            echo "  $0 --port 3002"
-            echo "  $0 --data-path ./my-data --port 3002"
+            echo "  $0 --port 8879"
+            echo "  $0 --data-path ./my-data --port 8879"
             exit 0
             ;;
         *)
